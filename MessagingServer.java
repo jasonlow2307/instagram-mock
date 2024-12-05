@@ -67,11 +67,12 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
 
     public static void main(String[] args) {
         try {
+            System.setProperty("java.rmi.server.hostname", "54.179.44.39");
+            LocateRegistry.createRegistry(1099);
             MessagingServer server = new MessagingServer();
             Registry registry = LocateRegistry.getRegistry(1099);
             registry.rebind("MessagingService", server);
-            System.out.println("Messaging server is running...");
-            System.out.println("RMI server bound to registry on: " + System.getProperty("java.rmi.server.hostname"));
+            System.out.println("Messaging server is running at: " + System.getProperty("java.rmi.server.hostname"));
         } catch (Exception e) {
             e.printStackTrace();
         }
