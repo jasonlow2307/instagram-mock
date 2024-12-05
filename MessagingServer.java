@@ -68,7 +68,7 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
     public static void main(String[] args) {
         try {
             MessagingServer server = new MessagingServer();
-            Registry registry = LocateRegistry.createRegistry(1099);
+            Registry registry = LocateRegistry.getRegistry(1099);
             registry.rebind("MessagingService", server);
             System.out.println("Messaging server is running...");
         } catch (Exception e) {
