@@ -91,6 +91,19 @@ public class MessagingClient extends UnicastRemoteObject implements ClientCallba
                                 String roomName = scanner.nextLine();
                                 client.server.createChatroom(roomName);
                                 System.out.println("Chatroom created: " + roomName);
+
+                                // Automatically join the chatroom after creation
+                                client.server.joinChatroom(roomName, client);
+                                System.out.println("Joined chatroom: " + roomName);
+                                System.out.println("Type 'quit' to exit the chatroom.");
+                                while (true) {
+                                    System.out.print("You: ");
+                                    String chatMessage = scanner.nextLine();
+                                    if (chatMessage.equalsIgnoreCase("quit")) {
+                                        break;
+                                    }
+                                    client.server.sendMessageToChatroom(roomName, chatMessage, client);
+                                }
                             } else if (chatChoice == 2) {
                                 List<String> chatrooms = client.server.getChatrooms();
                                 if (chatrooms.isEmpty()) {
