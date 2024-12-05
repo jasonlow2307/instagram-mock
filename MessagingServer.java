@@ -67,7 +67,7 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
 
     public static void main(String[] args) {
         try {
-            System.setProperty("java.rmi.server.hostname", "172.31.30.129");
+            System.setProperty("java.rmi.server.hostname", "localhost");
             LocateRegistry.createRegistry(1099);
             MessagingServer server = new MessagingServer();
             Registry registry = LocateRegistry.getRegistry(1099);
