@@ -7,6 +7,13 @@ import java.util.List;
 import java.util.Scanner;
 
 public class MessagingClient extends UnicastRemoteObject implements ClientCallback {
+    private static final String[] SERVER_ADDRESSES = {
+        "192.168.100.94:1099", // Primary server
+        "192.168.100.94:1100"  // Secondary server
+    };
+
+    private MessagingService server;
+
     protected MessagingClient() throws RemoteException {
         super();
     }
@@ -16,13 +23,33 @@ public class MessagingClient extends UnicastRemoteObject implements ClientCallba
         System.out.println("New message: " + message);
     }
 
+    private boolean connectToServer() {
+        for (String address : SERVER_ADDRESSES) {
+            try {
+                String[] hostPort = address.split(":");
+                String host = hostPort[0];
+                int port = Integer.parseInt(hostPort[1]);
+                Registry registry = LocateRegistry.getRegistry(host, port);
+                server = (MessagingService) registry.lookup("MessagingService");
+                System.out.println("Connected to server: " + address);
+                return true;
+            } catch (Exception e) {
+                System.err.println("Failed to connect to server: " + address);
+            }
+        }
+        System.err.println("All servers are unavailable.");
+        return false;
+    }
+
     public static void main(String[] args) {
         try {
-            Registry registry = LocateRegistry.getRegistry("localhost", 1099);
-            MessagingService server = (MessagingService) registry.lookup("MessagingService");
-
             MessagingClient client = new MessagingClient();
-            server.registerClient(client);
+
+            if (!client.connectToServer()) {
+                System.exit(1);
+            }
+
+            client.server.registerClient(client);
 
             Scanner scanner = new Scanner(System.in);
 
@@ -39,57 +66,65 @@ public class MessagingClient extends UnicastRemoteObject implements ClientCallba
                     continue;
                 }
 
-                switch (choice) {
-                    case 1:
-                        System.out.print("Enter message: ");
-                        String message = scanner.nextLine();
-                        server.sendMessage(message);
-                        break;
-                    case 2:
-                        List<String> clientList = server.getClientList();
-                        if (clientList.isEmpty()) {
-                            System.out.println("No clients connected.");
+                try {
+                    switch (choice) {
+                        case 1:
+                            System.out.print("Enter message: ");
+                            String message = scanner.nextLine();
+                            client.server.sendMessage(message);
                             break;
-                        }
-                        System.out.println("Connected clients:");
-                        for (int i = 0; i < clientList.size(); i++) {
-                            System.out.println((i + 1) + ". " + clientList.get(i));
-                        }
-                        System.out.print("Select client (number): ");
-                        int clientIndex = scanner.nextInt() - 1;
-                        scanner.nextLine(); // Consume newline
-                        System.out.print("Enter message: ");
-                        String targetedMessage = scanner.nextLine();
-                        server.sendMessageToClient(targetedMessage, clientIndex);
-                        break;
-                    case 3:
-                        System.out.print("Enter post content: ");
-                        String content = scanner.nextLine();
-                        server.createPost("User", content);
-                        break;
-                    case 4:
-                        displayFeed(server);
-                        break;
-                    case 5:
-                        displayFeed(server);
-                        System.out.print("Enter post ID to like: ");
-                        int postIdToLike = scanner.nextInt();
-                        server.likePost("User", postIdToLike);
-                        break;
-                    case 6:
-                        displayFeed(server);
-                        System.out.print("Enter post ID to comment on: ");
-                        int postIdToComment = scanner.nextInt();
-                        scanner.nextLine();
-                        System.out.print("Enter comment: ");
-                        String comment = scanner.nextLine();
-                        server.commentOnPost("User", postIdToComment, comment);
-                        break;
-                    case 7:
-                        System.exit(0);
-                        break;
-                    default:
-                        System.out.println("Invalid choice. Please try again.");
+                        case 2:
+                            List<String> clientList = client.server.getClientList();
+                            if (clientList.isEmpty()) {
+                                System.out.println("No clients connected.");
+                                break;
+                            }
+                            System.out.println("Connected clients:");
+                            for (int i = 0; i < clientList.size(); i++) {
+                                System.out.println((i + 1) + ". " + clientList.get(i));
+                            }
+                            System.out.print("Select client (number): ");
+                            int clientIndex = scanner.nextInt() - 1;
+                            scanner.nextLine(); // Consume newline
+                            System.out.print("Enter message: ");
+                            String targetedMessage = scanner.nextLine();
+                            client.server.sendMessageToClient(targetedMessage, clientIndex);
+                            break;
+                        case 3:
+                            System.out.print("Enter post content: ");
+                            String content = scanner.nextLine();
+                            client.server.createPost("User", content);
+                            break;
+                        case 4:
+                            client.displayFeed();
+                            break;
+                        case 5:
+                            client.displayFeed();
+                            System.out.print("Enter post ID to like: ");
+                            int postIdToLike = scanner.nextInt();
+                            client.server.likePost("User", postIdToLike);
+                            break;
+                        case 6:
+                            client.displayFeed();
+                            System.out.print("Enter post ID to comment on: ");
+                            int postIdToComment = scanner.nextInt();
+                            scanner.nextLine();
+                            System.out.print("Enter comment: ");
+                            String comment = scanner.nextLine();
+                            client.server.commentOnPost("User", postIdToComment, comment);
+                            break;
+                        case 7:
+                            System.exit(0);
+                            break;
+                        default:
+                            System.out.println("Invalid choice. Please try again.");
+                    }
+                } catch (RemoteException e) {
+                    System.err.println("Server connection lost. Attempting to reconnect...");
+                    if (!client.connectToServer()) {
+                        System.out.println("Failed to reconnect. Exiting...");
+                        System.exit(1);
+                    }
                 }
             }
         } catch (Exception e) {
@@ -97,7 +132,7 @@ public class MessagingClient extends UnicastRemoteObject implements ClientCallba
         }
     }
 
-    private static void displayFeed(MessagingService server) throws RemoteException {
+    private void displayFeed() throws RemoteException {
         List<Post> feed = server.getFeed();
         System.out.println("\nFeed:");
         for (Post post : feed) {
