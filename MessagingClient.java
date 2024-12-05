@@ -18,11 +18,15 @@ public class MessagingClient extends UnicastRemoteObject implements ClientCallba
 
     public static void main(String[] args) {
         try {
-            Registry registry = LocateRegistry.getRegistry("18.141.204.33", 1099);
+            Registry registry = LocateRegistry.getRegistry("54.255.209.219", 1099);
+            System.out.println("GOT REGISTRY" + registry);
             MessagingService server = (MessagingService) registry.lookup("MessagingService");
+            System.out.println("GOT SERVER" + server);
 
             MessagingClient client = new MessagingClient();
+            System.out.println("GOT CLIENT" + client);
             server.registerClient(client);
+            System.out.println("GOT REGISTRATION");
 
             Scanner scanner = new Scanner(System.in);
 
