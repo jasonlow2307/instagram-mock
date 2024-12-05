@@ -21,6 +21,7 @@ public class MessagingClient extends UnicastRemoteObject implements ClientCallba
     @Override
     public void receiveMessage(String message) throws RemoteException {
         System.out.println("\n" + message);
+        System.out.print("You: ");
     }
 
     @Override
