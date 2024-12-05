@@ -2,15 +2,15 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class MessagingServer extends UnicastRemoteObject implements MessagingService {
     private final List<ClientCallback> clients; // List of connected clients
     private final List<Post> posts;            // List of posts for the feed
     private final Map<String, List<ClientCallback>> chatrooms; // Chatrooms and their participants
+
+    private final Map<String, Set<String>> followers; // Map to track followers for each user
+    private final Map<ClientCallback, String> onlineUsers; // Map to track online users and their usernames
 
     private boolean isPrimary;           // True if the server is primary
     private MessagingService backupServer;     // Reference to the backup server
@@ -21,6 +21,8 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         clients = new ArrayList<>();
         posts = new ArrayList<>();
         chatrooms = new HashMap<>();
+        followers = new HashMap<>();
+        onlineUsers = new HashMap<>();
     }
 
     @Override
@@ -46,11 +48,52 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
     }
 
     @Override
-    public void registerClient(ClientCallback client) throws RemoteException {
+    public void registerClient(String username, ClientCallback client) throws RemoteException {
         clients.add(client);
-        System.out.println("New client registered. Total clients: " + clients.size());
-        syncBackup(() -> backupServer.registerClient(client));
+        onlineUsers.put(client, username);
+
+        if (!followers.containsKey(username)) {
+            followers.put(username, new HashSet<>());
+        }
+
+        System.out.println("New client registered: " + username);
+        syncBackup(() -> backupServer.registerClient(username, client));
     }
+
+    public void followUser(String follower, String followee) throws RemoteException {
+        if (!followers.containsKey(followee)) {
+            System.out.println(followee + " does not exist.");
+            return;
+        }
+
+        followers.get(followee).add(follower);
+        System.out.println(follower + " is now following " + followee);
+
+        syncBackup(() -> backupServer.followUser(follower, followee));
+    }
+
+    public void unfollowUser(String follower, String followee) throws RemoteException {
+        if (!followers.containsKey(followee)) {
+            System.out.println(followee + " does not exist.");
+            return;
+        }
+
+        followers.get(followee).remove(follower);
+        System.out.println(follower + " unfollowed " + followee);
+
+        syncBackup(() -> backupServer.unfollowUser(follower, followee));
+    }
+
+    @Override
+    public Map<String, Set<String>> listOnlineUsers() throws RemoteException {
+        Map<String, Set<String>> onlineUsersWithFollowers = new HashMap<>();
+        for (Map.Entry<ClientCallback, String> entry : onlineUsers.entrySet()) {
+            String username = entry.getValue();
+            onlineUsersWithFollowers.put(username, followers.getOrDefault(username, new HashSet<>()));
+        }
+        return onlineUsersWithFollowers;
+    }
+
 
     @Override
     public List<String> getClientList() throws RemoteException {

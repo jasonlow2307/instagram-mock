@@ -2,11 +2,10 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
-import java.util.InputMismatchException;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 public class MessagingClient extends UnicastRemoteObject implements ClientCallback {
+    private String username;
     private static final String[] SERVER_ADDRESSES = {
             "localhost:1099", // Primary server
             "localhost:1100"  // Secondary server
@@ -56,12 +55,16 @@ public class MessagingClient extends UnicastRemoteObject implements ClientCallba
                 System.exit(1); // Exit if unable to connect to any server
             }
 
-            client.server.registerClient(client);
-
             Scanner scanner = new Scanner(System.in);
 
+            // Prompt for username
+            System.out.print("Enter your username: ");
+            client.username = scanner.nextLine();
+            client.server.registerClient(client.username, client); // Pass username during registration
+
             while (true) {
-                System.out.println("\n1. Send Message\n2. Targeted Chatroom\n3. Create Post\n4. View Feed\n5. Like Post\n6. Comment on Post\n7. Exit");
+                System.out.println("\n1. Send Message\n2. Targeted Chatroom\n3. Create Post\n4. View Feed\n5. Like Post\n6. Comment on Post");
+                System.out.println("7. Follow User\n8. Unfollow User\n9. List Online Users\n10. Exit");
                 System.out.print("Choose an option: ");
                 int choice = -1;
 
@@ -159,7 +162,26 @@ public class MessagingClient extends UnicastRemoteObject implements ClientCallba
                             String comment = scanner.nextLine();
                             client.server.commentOnPost("User", postIdToComment, comment);
                             break;
-                        case 7:
+                        case 7: // Follow a user
+                            System.out.print("Enter username to follow: ");
+                            String followee = scanner.nextLine();
+                            client.server.followUser(client.username, followee);
+                            break;
+                        case 8: // Unfollow a user
+                            System.out.print("Enter username to unfollow: ");
+                            String unfollowee = scanner.nextLine();
+                            client.server.unfollowUser(client.username, unfollowee);
+                            break;
+                        case 9: // List online users
+                            Map<String, Set<String>> onlineUsersWithFollowers = client.server.listOnlineUsers();
+                            System.out.println("Online Users with Followers:");
+                            for (Map.Entry<String, Set<String>> entry : onlineUsersWithFollowers.entrySet()) {
+                                String user = entry.getKey();
+                                Set<String> followers = entry.getValue();
+                                System.out.println("- " + user + " (Followers: " + (followers.isEmpty() ? "None" : String.join(", ", followers)) + ")");
+                            }
+                            break;
+                        case 10: // Exit
                             System.exit(0);
                             break;
                         default:
