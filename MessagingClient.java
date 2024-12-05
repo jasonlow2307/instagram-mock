@@ -18,29 +18,25 @@ public class MessagingClient extends UnicastRemoteObject implements ClientCallba
 
     public static void main(String[] args) {
         try {
-            Registry registry = LocateRegistry.getRegistry("54.255.209.219", 1099);
-            System.out.println("GOT REGISTRY" + registry);
+            Registry registry = LocateRegistry.getRegistry("localhost", 1099);
             MessagingService server = (MessagingService) registry.lookup("MessagingService");
-            System.out.println("GOT SERVER" + server);
 
             MessagingClient client = new MessagingClient();
-            System.out.println("GOT CLIENT" + client);
             server.registerClient(client);
-            System.out.println("GOT REGISTRATION");
 
             Scanner scanner = new Scanner(System.in);
 
             while (true) {
-                int choice = -1; // Default invalid value
+                int choice = -1;
                 try {
-                    System.out.println("\n1. Send Message\n2. Create Post\n3. View Feed\n4. Like Post\n5. Comment on Post\n6. Exit");
+                    System.out.println("\n1. Send Message\n2. Send Targeted Message\n3. Create Post\n4. View Feed\n5. Like Post\n6. Comment on Post\n7. Exit");
                     System.out.print("Choose an option: ");
                     choice = scanner.nextInt();
                     scanner.nextLine(); // Consume newline after number input
                 } catch (InputMismatchException e) {
-                    System.out.println("Invalid input. Please enter a number between 1 and 6.");
-                    scanner.nextLine(); // Clear the invalid input
-                    continue; // Retry the loop
+                    System.out.println("Invalid input. Please enter a number.");
+                    scanner.nextLine(); // Clear invalid input
+                    continue;
                 }
 
                 switch (choice) {
@@ -50,33 +46,50 @@ public class MessagingClient extends UnicastRemoteObject implements ClientCallba
                         server.sendMessage(message);
                         break;
                     case 2:
+                        List<String> clientList = server.getClientList();
+                        if (clientList.isEmpty()) {
+                            System.out.println("No clients connected.");
+                            break;
+                        }
+                        System.out.println("Connected clients:");
+                        for (int i = 0; i < clientList.size(); i++) {
+                            System.out.println((i + 1) + ". " + clientList.get(i));
+                        }
+                        System.out.print("Select client (number): ");
+                        int clientIndex = scanner.nextInt() - 1;
+                        scanner.nextLine(); // Consume newline
+                        System.out.print("Enter message: ");
+                        String targetedMessage = scanner.nextLine();
+                        server.sendMessageToClient(targetedMessage, clientIndex);
+                        break;
+                    case 3:
                         System.out.print("Enter post content: ");
                         String content = scanner.nextLine();
                         server.createPost("User", content);
                         break;
-                    case 3:
+                    case 4:
                         displayFeed(server);
                         break;
-                    case 4:
+                    case 5:
                         displayFeed(server);
                         System.out.print("Enter post ID to like: ");
                         int postIdToLike = scanner.nextInt();
                         server.likePost("User", postIdToLike);
                         break;
-                    case 5:
+                    case 6:
                         displayFeed(server);
                         System.out.print("Enter post ID to comment on: ");
                         int postIdToComment = scanner.nextInt();
-                        scanner.nextLine(); // Consume newline
+                        scanner.nextLine();
                         System.out.print("Enter comment: ");
                         String comment = scanner.nextLine();
                         server.commentOnPost("User", postIdToComment, comment);
                         break;
-                    case 6:
+                    case 7:
                         System.exit(0);
                         break;
                     default:
-                        System.out.println("Invalid choice. Please enter a number between 1 and 6.");
+                        System.out.println("Invalid choice. Please try again.");
                 }
             }
         } catch (Exception e) {

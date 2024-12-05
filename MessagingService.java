@@ -2,13 +2,12 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.List;
 
-// Remote interface for Instagram mock
 public interface MessagingService extends Remote {
-    // Messaging functionality
     void sendMessage(String message) throws RemoteException;
     void registerClient(ClientCallback client) throws RemoteException;
-
-    // Posts functionality
+    List<String> getClientList() throws RemoteException; // New method
+    void sendMessageToClient(String message, int clientIndex) throws RemoteException; // New method for targeted message
+    // Existing methods
     void createPost(String username, String content) throws RemoteException;
     List<Post> getFeed() throws RemoteException;
     void likePost(String username, int postId) throws RemoteException;
