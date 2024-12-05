@@ -3,16 +3,20 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class MessagingServer extends UnicastRemoteObject implements MessagingService {
     private final List<ClientCallback> clients; // List of connected clients
     private final List<Post> posts;            // List of posts for the feed
+    private final Map<String, List<ClientCallback>> chatrooms; // Chatrooms and their participants
 
     protected MessagingServer() throws RemoteException {
         super();
         clients = new ArrayList<>();
         posts = new ArrayList<>();
+        chatrooms = new HashMap<>();
     }
 
     @Override
@@ -44,9 +48,47 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
     public List<String> getClientList() throws RemoteException {
         List<String> clientDescriptions = new ArrayList<>();
         for (int i = 0; i < clients.size(); i++) {
-            clientDescriptions.add("Client " + (i + 1)); // Return a descriptive name for each client
+            clientDescriptions.add("Client " + (i + 1));
         }
         return clientDescriptions;
+    }
+
+    @Override
+    public void createChatroom(String roomName) throws RemoteException {
+        if (!chatrooms.containsKey(roomName)) {
+            chatrooms.put(roomName, new ArrayList<>());
+            System.out.println("Chatroom created: " + roomName);
+        } else {
+            System.out.println("Chatroom already exists: " + roomName);
+        }
+    }
+
+    @Override
+    public List<String> getChatrooms() throws RemoteException {
+        return new ArrayList<>(chatrooms.keySet());
+    }
+
+    @Override
+    public void joinChatroom(String roomName, ClientCallback client) throws RemoteException {
+        if (chatrooms.containsKey(roomName)) {
+            chatrooms.get(roomName).add(client);
+            System.out.println("Client joined chatroom: " + roomName);
+        } else {
+            System.out.println("Chatroom not found: " + roomName);
+        }
+    }
+
+    @Override
+    public void sendMessageToChatroom(String roomName, String message, ClientCallback sender) throws RemoteException {
+        if (chatrooms.containsKey(roomName)) {
+            for (ClientCallback client : chatrooms.get(roomName)) {
+                if (!client.equals(sender)) {
+                    client.receiveMessage("[" + roomName + "] " + message);
+                }
+            }
+        } else {
+            System.out.println("Chatroom not found: " + roomName);
+        }
     }
 
     @Override
@@ -92,10 +134,18 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         }
         int port = Integer.parseInt(args[0]);
         try {
+<<<<<<< HEAD
             System.setProperty("java.rmi.server.hostname", "192.168.100.94"); // Adjust to your IP
             LocateRegistry.createRegistry(port);
             MessagingServer server = new MessagingServer();
             Registry registry = LocateRegistry.getRegistry(port);
+=======
+            System.setProperty("java.rmi.server.hostname", "192.168.100.231");
+
+            LocateRegistry.createRegistry(1099);
+            MessagingServer server = new MessagingServer();
+            Registry registry = LocateRegistry.getRegistry(1099);
+>>>>>>> 378403e387b16927ece0b3e88b298b8a1c576474
             registry.rebind("MessagingService", server);
             System.out.println("Messaging server is running at: " + System.getProperty("java.rmi.server.hostname") + ":" + port);
         } catch (Exception e) {

@@ -2,17 +2,16 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-// Serializable class for posts
 public class Post implements Serializable {
-    private static int idCounter = 0;
-    private final int id;
+    private static int nextId = 1; // Static ID generator
+    private final int id;         // Unique ID of the post
     private final String username;
     private final String content;
     private int likes;
     private final List<String> comments;
 
     public Post(String username, String content) {
-        this.id = idCounter++;
+        this.id = nextId++;
         this.username = username;
         this.content = content;
         this.likes = 0;
@@ -49,12 +48,7 @@ public class Post implements Serializable {
 
     @Override
     public String toString() {
-        return "Post{" +
-                "id=" + id +
-                ", username='" + username + '\'' +
-                ", content='" + content + '\'' +
-                ", likes=" + likes +
-                ", comments=" + comments +
-                '}';
+        return "Post{id=" + id + ", username='" + username + "', content='" + content +
+                "', likes=" + likes + ", comments=" + comments + '}';
     }
 }
