@@ -71,6 +71,7 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
             Registry registry = LocateRegistry.getRegistry(1099);
             registry.rebind("MessagingService", server);
             System.out.println("Messaging server is running...");
+            System.out.println("RMI server bound to registry on: " + System.getProperty("java.rmi.server.hostname"));
         } catch (Exception e) {
             e.printStackTrace();
         }
