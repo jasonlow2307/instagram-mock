@@ -133,20 +133,15 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
             return;
         }
         int port = Integer.parseInt(args[0]);
+
         try {
-<<<<<<< HEAD
-            System.setProperty("java.rmi.server.hostname", "192.168.100.94"); // Adjust to your IP
+            System.setProperty("java.rmi.server.hostname", "localhost"); // Update this IP to match your server's IP
+
             LocateRegistry.createRegistry(port);
             MessagingServer server = new MessagingServer();
             Registry registry = LocateRegistry.getRegistry(port);
-=======
-            System.setProperty("java.rmi.server.hostname", "192.168.100.231");
-
-            LocateRegistry.createRegistry(1099);
-            MessagingServer server = new MessagingServer();
-            Registry registry = LocateRegistry.getRegistry(1099);
->>>>>>> 378403e387b16927ece0b3e88b298b8a1c576474
             registry.rebind("MessagingService", server);
+
             System.out.println("Messaging server is running at: " + System.getProperty("java.rmi.server.hostname") + ":" + port);
         } catch (Exception e) {
             e.printStackTrace();
