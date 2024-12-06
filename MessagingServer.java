@@ -1,3 +1,5 @@
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -15,7 +17,10 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
     private boolean isPrimary;           // True if the server is primary
     private MessagingService backupServer;     // Reference to the backup server
 
-    protected MessagingServer(boolean isPrimary) throws RemoteException {
+    private final int currentPort;
+
+
+    protected MessagingServer(boolean isPrimary, int currentPort) throws RemoteException {
         super();
         this.isPrimary = isPrimary;
         clients = new ArrayList<>();
@@ -23,6 +28,11 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         chatrooms = new HashMap<>();
         followers = new HashMap<>();
         onlineUsers = new HashMap<>();
+        this.currentPort = currentPort;
+
+        System.out.println("Before calling monitorAndScale...");
+        monitorAndScale();
+        System.out.println("After calling monitorAndScale...");
     }
 
     @Override
@@ -57,6 +67,7 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         }
 
         System.out.println("New client registered: " + username);
+        System.out.println("Total clients: " + clients.size()); // Log client count
         syncBackup(() -> backupServer.registerClient(username, client));
     }
 
@@ -247,31 +258,35 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
     }
 
     public static void main(String[] args) {
-        if (args.length < 3) {
-            System.out.println("Usage: java MessagingServer <port> <isPrimary(true/false)> <backupPort>");
-            return;
-        }
-        int port = Integer.parseInt(args[0]);
-        boolean isPrimary = Boolean.parseBoolean(args[1]);
-        int backupPort = Integer.parseInt(args[2]);
-    
+        int port = 1099; // Default test port
+        boolean isPrimary = true; // Default to primary for testing
+        int backupPort = 1100; // Default backup port for testing
+
+        System.out.println("Starting MessagingServer test...");
         try {
+            // Set RMI server hostname to localhost
             System.setProperty("java.rmi.server.hostname", "localhost");
-    
+
+            // Start RMI Registry
             LocateRegistry.createRegistry(port);
-            MessagingServer server = new MessagingServer(isPrimary);
+            System.out.println("RMI Registry started on port: " + port);
+
+            // Initialize and bind the server
+            MessagingServer server = new MessagingServer(isPrimary, port);
             Registry registry = LocateRegistry.getRegistry(port);
             registry.rebind("MessagingService", server);
-    
             System.out.println((isPrimary ? "Primary" : "Backup") + " server running at port " + port);
-    
-            if (!isPrimary) {
-                Registry backupRegistry = LocateRegistry.getRegistry("localhost", backupPort);
-                server.backupServer = (MessagingService) backupRegistry.lookup("MessagingService");
-                server.connectToPrimaryServer("localhost", backupPort);
-                server.startHeartbeat();
-            } 
+
+            // Start monitoring and scaling
+            System.out.println("Starting monitorAndScale...");
+            server.monitorAndScale();
+
+            // Simulate client load
+            System.out.println("Simulating client load...");
+            server.simulateClientLoad(21); // Exceed CLIENT_THRESHOLD for testing
+
         } catch (Exception e) {
+            System.err.println("Error during server setup or execution:");
             e.printStackTrace();
         }
     }
@@ -297,4 +312,58 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
     private interface SyncOperation {
         void execute() throws RemoteException;
     }
+
+    private static final int CLIENT_THRESHOLD = 20; // Adjust as necessary
+    private LoadMonitor loadMonitor = new LoadMonitor();
+
+    private void monitorAndScale() {
+        System.out.println("Starting monitorAndScale thread...");
+        new Thread(() -> {
+            while (true) {
+                System.out.println("Monitoring client load...");
+                int currentClientCount = clients.size();
+                System.out.println("Current client count: " + currentClientCount);
+                if (currentClientCount > CLIENT_THRESHOLD) {
+                    System.out.println("Client threshold exceeded. Spawning new server...");
+                    try {
+                        int newPort = findAvailablePort(); // Dynamically find an available port
+                        ServerSpawner.spawnNewServer(newPort, false, currentPort); // Use currentPort
+                        System.out.println("New server spawned at port: " + newPort);
+                    } catch (Exception e) {
+                        System.err.println("Failed to spawn a new server: " + e.getMessage());
+                    }
+                }
+                try {
+                    Thread.sleep(5000); // Check every 5 seconds
+                } catch (InterruptedException ignored) {}
+            }
+        }).start();
+    }
+
+
+
+    private int findAvailablePort() throws IOException {
+        // Use a ServerSocket to find an available port dynamically
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort(); // Get an available port
+        }
+    }
+
+    public void simulateClientLoad(int numberOfClients) {
+        new Thread(() -> {
+            try {
+                for (int i = 0; i < numberOfClients; i++) {
+                    String username = "TestUser" + i;
+                    registerClient(username, new TestClientCallback(username));
+                    System.out.println("Simulated client: " + username);
+                    Thread.sleep(50); // Small delay between client registrations
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+
+
 }
