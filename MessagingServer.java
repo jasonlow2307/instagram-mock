@@ -14,26 +14,7 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
     private final Map<String, Set<String>> followers; // Map to track followers for each user
     private final Map<ClientCallback, String> onlineUsers; // Map to track online users and their usernames
 
-    private boolean isPrimary;           // True if the server is primary
-    private MessagingService backupServer;     // Reference to the backup server
-
     private final int currentPort;
-
-
-    protected MessagingServer(boolean isPrimary, int currentPort) throws RemoteException {
-        super();
-        this.isPrimary = isPrimary;
-        clients = new ArrayList<>();
-        posts = new ArrayList<>();
-        chatrooms = new HashMap<>();
-        followers = new HashMap<>();
-        onlineUsers = new HashMap<>();
-        this.currentPort = currentPort;
-
-//        System.out.println("Before calling monitorAndScale...");
-//        monitorAndScale();
-//        System.out.println("After calling monitorAndScale...");
-    }
 
     protected MessagingServer(int currentPort) throws RemoteException {
         super();
@@ -43,11 +24,10 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         followers = new HashMap<>();
         onlineUsers = new HashMap<>();
         this.currentPort = currentPort;
-        System.out.println("SERVER CREATED ON PORT " + currentPort);
 
-//        System.out.println("Before calling monitorAndScale...");
-//        monitorAndScale();
-//        System.out.println("After calling monitorAndScale...");
+        System.out.println("Before calling monitorAndScale...");
+        monitorAndScale();
+        System.out.println("After calling monitorAndScale...");
     }
 
     @Override
@@ -56,7 +36,6 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         for (ClientCallback client : clients) {
             client.receiveMessage(message);
         }
-        syncBackup(() -> backupServer.sendMessage(message));
     }
 
     @Override
@@ -68,8 +47,6 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         ClientCallback client = clients.get(clientIndex);
         client.receiveMessage(message);
         System.out.println("Message sent to Client " + (clientIndex + 1));
-
-        syncBackup(() -> backupServer.sendMessageToClient(message, clientIndex));
     }
 
     @Override
@@ -83,7 +60,6 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
 
         System.out.println("New client registered: " + username);
         System.out.println("Total clients: " + clients.size()); // Log client count
-        syncBackup(() -> backupServer.registerClient(username, client));
     }
 
     public void followUser(String follower, String followee) throws RemoteException {
@@ -94,8 +70,6 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
 
         followers.get(followee).add(follower);
         System.out.println(follower + " is now following " + followee);
-
-        syncBackup(() -> backupServer.followUser(follower, followee));
     }
 
     public void unfollowUser(String follower, String followee) throws RemoteException {
@@ -106,8 +80,6 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
 
         followers.get(followee).remove(follower);
         System.out.println(follower + " unfollowed " + followee);
-
-        syncBackup(() -> backupServer.unfollowUser(follower, followee));
     }
 
     @Override
@@ -138,7 +110,6 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         } else {
             System.out.println("Chatroom already exists: " + roomName);
         }
-        syncBackup(() -> backupServer.createChatroom(roomName));
     }
 
     @Override
@@ -154,7 +125,6 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         } else {
             System.out.println("Chatroom not found: " + roomName);
         }
-        syncBackup(() -> backupServer.joinChatroom(roomName, client));
     }
 
     @Override
@@ -168,7 +138,6 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         } else {
             System.out.println("Chatroom not found: " + roomName);
         }
-        syncBackup(() -> backupServer.sendMessageToChatroom(roomName, message, sender));
     }
 
     @Override
@@ -176,7 +145,6 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         Post post = new Post(username, content);
         posts.add(post);
         System.out.println("New post created by " + username + ": " + content);
-        syncBackup(() -> backupServer.createPost(username, content));
     }
 
     @Override
@@ -190,7 +158,6 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
             if (post.getId() == postId) {
                 post.addLike();
                 System.out.println(username + " liked post " + postId);
-                syncBackup(() -> backupServer.likePost(username, postId));
                 return;
             }
         }
@@ -203,121 +170,10 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
             if (post.getId() == postId) {
                 post.addComment(username + ": " + comment);
                 System.out.println(username + " commented on post " + postId);
-                syncBackup(() -> backupServer.commentOnPost(username, postId, comment));
                 return;
             }
         }
         System.out.println("Post not found: " + postId);
-    }
-
-    @Override
-    public void synchronizeState(List<ClientCallback> clients, List<Post> posts, Map<String, List<ClientCallback>> chatrooms) throws RemoteException {
-        this.clients.clear();
-        this.clients.addAll(clients);
-
-        this.posts.clear();
-        this.posts.addAll(posts);
-
-        this.chatrooms.clear();
-        this.chatrooms.putAll(chatrooms);
-
-        System.out.println("Backup server state synchronized with primary.");
-        System.out.println("Clients: " + clients.size() + ", Posts: " + posts.size() + ", Chatrooms: " + chatrooms.keySet());
-    }
-
-    private void syncBackup(SyncOperation operation) {
-        if (isPrimary && backupServer != null) {
-            try {
-                // Execute the specific operation
-                operation.execute();
-                
-                // Immediately synchronize the entire state
-                backupServer.synchronizeState(
-                    new ArrayList<>(clients), 
-                    new ArrayList<>(posts), 
-                    new HashMap<>(chatrooms)
-                );
-                System.out.println("Full state synchronized after operation");
-            } catch (RemoteException e) {
-                System.out.println("Failed to sync with backup server: " + e.getMessage());
-            }
-        }
-    }
-
-    @Override
-    public void registerBackup(MessagingService backupServer) throws RemoteException {
-        this.backupServer = backupServer;
-        System.out.println("Backup server has been registered.");
-    }
-
-    private void connectToPrimaryServer(String primaryHost, int primaryPort) {
-        new Thread(() -> {
-            while (true) {
-                try {
-                    Registry primaryRegistry = LocateRegistry.getRegistry(primaryHost, primaryPort);
-                    MessagingService primaryServer = (MessagingService) primaryRegistry.lookup("MessagingService");
-                    
-                    // Register backup server with the primary
-                    primaryServer.registerBackup(this);
-                    System.out.println("Backup server registered with the primary server.");
-                    break; // Exit the loop once registered
-                } catch (Exception e) {
-                    System.out.println("Retrying connection to primary server: " + e.getMessage());
-                    try {
-                        Thread.sleep(5000); // Retry every 5 seconds
-                    } catch (InterruptedException ignored) {
-                    }
-                }
-            }
-        }).start();
-    }
-
-    public static void main(String[] args) {
-        int port = 1099; // Default test port
-        boolean isPrimary = true; // Default to primary for testing
-        int backupPort = 1100; // Default backup port for testing
-
-        System.out.println("Starting MessagingServer test...");
-        try {
-            // Set RMI server hostname to localhost
-            System.setProperty("java.rmi.server.hostname", "localhost");
-
-            // Start RMI Registry
-            LocateRegistry.createRegistry(port);
-            System.out.println("RMI Registry started on port: " + port);
-
-            // Initialize and bind the server
-            MessagingServer server = new MessagingServer(isPrimary, port);
-            Registry registry = LocateRegistry.getRegistry(port);
-            registry.rebind("MessagingService", server);
-            System.out.println((isPrimary ? "Primary" : "Backup") + " server running at port " + port);
-
-        } catch (Exception e) {
-            System.err.println("Error during server setup or execution:");
-            e.printStackTrace();
-        }
-    }
-    
-    private void startHeartbeat() {
-        new Thread(() -> {
-            while (!isPrimary) {
-                try {
-                    // Heartbeat check
-                    backupServer.getClientList(); 
-                    Thread.sleep(5000); // Wait 5 seconds between checks
-                } catch (Exception e) {
-                    System.out.println("Primary server down. Promoting to primary...");
-                    isPrimary = true;
-                    backupServer = null;
-                    break;
-                }
-            }
-        }).start();
-    }
-
-    @FunctionalInterface
-    private interface SyncOperation {
-        void execute() throws RemoteException;
     }
 
     private static final int CLIENT_THRESHOLD = 20; // Adjust as necessary
