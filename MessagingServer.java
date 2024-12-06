@@ -22,5 +22,6 @@ public interface MessagingServer extends Remote {
     Map<String, Set<String>> listOnlineUsers() throws RemoteException; // Updated
     void updateState(Map<String, Object> newState) throws RemoteException;
     void ping() throws RemoteException;
-    // Other methods...
+    void decrementLoad() throws RemoteException;
+    void incrementLoad() throws RemoteException;
 }

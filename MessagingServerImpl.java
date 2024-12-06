@@ -7,6 +7,8 @@ import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.*;
 
+import static java.lang.Integer.parseInt;
+
 public class MessagingServerImpl extends UnicastRemoteObject implements MessagingServer {
     private LoadBalancer coordinator;
     private int currentLoad = 0;
@@ -31,10 +33,6 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         // Pull load balancer into server for updating load
         Registry registry = LocateRegistry.getRegistry(1099);
         this.coordinator = (LoadBalancer) registry.lookup("ServerCoordinator");
-
-        System.out.println("Before calling monitorAndScale...");
-        monitorAndScale();
-        System.out.println("After calling monitorAndScale...");
     }
 
     @Override
@@ -68,7 +66,15 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         System.out.println("New client registered: " + username);
         System.out.println("Total clients: " + clients.size()); // Log client count
         notifyStateChange();
+    }
 
+    @Override
+    public void decrementLoad() throws RemoteException {
+        currentLoad--;
+    }
+
+    @Override
+    public void incrementLoad() throws RemoteException {
         currentLoad++;
         coordinator.updateLoad(currentLoad, currentPort);
     }
@@ -196,57 +202,6 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         System.out.println("Post not found: " + postId);
     }
 
-    private static final int CLIENT_THRESHOLD = 20; // Adjust as necessary
-    private LoadMonitor loadMonitor = new LoadMonitor();
-
-    private void monitorAndScale() {
-        System.out.println("Starting monitorAndScale thread...");
-        new Thread(() -> {
-            while (true) {
-                System.out.println("Monitoring client load...");
-                int currentClientCount = clients.size();
-                System.out.println("Current client count: " + currentClientCount);
-                if (currentClientCount > CLIENT_THRESHOLD) {
-                    System.out.println("Client threshold exceeded. Spawning new server...");
-                    try {
-                        int newPort = findAvailablePort(); // Dynamically find an available port
-                        ServerSpawner.spawnNewServer(newPort, false, currentPort); // Use currentPort
-                        System.out.println("New server spawned at port: " + newPort);
-                    } catch (Exception e) {
-                        System.err.println("Failed to spawn a new server: " + e.getMessage());
-                    }
-                }
-                try {
-                    Thread.sleep(5000); // Check every 5 seconds
-                } catch (InterruptedException ignored) {}
-            }
-        }).start();
-    }
-
-
-
-    private int findAvailablePort() throws IOException {
-        // Use a ServerSocket to find an available port dynamically
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort(); // Get an available port
-        }
-    }
-
-    public void simulateClientLoad(int numberOfClients) {
-        new Thread(() -> {
-            try {
-                for (int i = 0; i < numberOfClients; i++) {
-                    String username = "TestUser" + i;
-                    registerClient(username, new TestMessagingClient(username));
-                    System.out.println("Simulated client: " + username);
-                    Thread.sleep(50); // Small delay between client registrations
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }).start();
-    }
-
     private void notifyStateChange() {
         try {
             Registry registry = LocateRegistry.getRegistry(1099);
@@ -298,5 +253,13 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         // Simply return or perform no operation to confirm server is alive
     }
 
+   public static void main(String[] args) throws RemoteException, NotBoundException {
+        int port = parseInt(args[0]);
+       System.setProperty("java.rmi.server.hostname", "localhost");
+       LocateRegistry.createRegistry(port);
+       MessagingServerImpl server = new MessagingServerImpl(port);
+       Registry registry = LocateRegistry.getRegistry(port);
+       registry.rebind("MessagingService", server);
+   }
 
 }
