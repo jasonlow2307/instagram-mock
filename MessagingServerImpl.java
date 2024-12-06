@@ -293,5 +293,10 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         }
     }
 
+    @Override
+    public void ping() throws RemoteException {
+        // Simply return or perform no operation to confirm server is alive
+    }
+
 
 }

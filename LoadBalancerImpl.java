@@ -5,6 +5,7 @@ import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalancer {
@@ -96,6 +97,8 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
             coordinator.registerServer("localhost:1100", 0, 1100);
             coordinator.registerServer("localhost:1101", 0, 1101);
 
+            coordinator.heartbeat();
+
             // Update server loads
             //coordinator.updateLoad("localhost:1099", 8);
 
@@ -112,6 +115,70 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
         } catch (Exception e) {
             System.err.println("Client exception: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    public void heartbeat() {
+        new Thread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(5000); // Heartbeat interval (5 seconds)
+                    synchronized (serverLoadMap) {
+                        Iterator<Map.Entry<Integer, Integer>> iterator = serverLoadMap.entrySet().iterator();
+                        while (iterator.hasNext()) {
+                            Map.Entry<Integer, Integer> entry = iterator.next();
+                            int port = entry.getKey();
+    
+                            // Check if the server is alive
+                            try {
+                                Registry registry = LocateRegistry.getRegistry(port);
+                                MessagingServer server = (MessagingServer) registry.lookup("MessagingService");
+                                server.ping(); // Assume `MessagingServer` has a ping method for heartbeat
+                                System.out.println("Server at port " + port + " is alive.");
+                            } catch (Exception e) {
+                                System.err.println("Server at port " + port + " is unresponsive. Removing it.");
+                                iterator.remove();
+    
+                                // Reassign clients connected to this server
+                                reassignClients(port);
+                            }
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    System.err.println("Heartbeat interrupted: " + e.getMessage());
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }).start();
+    }
+    
+    private void reassignClients(int failedPort) {
+        synchronized (clientMap) {
+            Iterator<Map.Entry<MessagingClient, Integer>> iterator = clientMap.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<MessagingClient, Integer> entry = iterator.next();
+                MessagingClient client = entry.getKey();
+                int clientPort = entry.getValue();
+    
+                if (clientPort == failedPort) {
+                    try {
+                        int newPort = getLeastLoadedServer();
+                        if (newPort != 0) { // Ensure a server is available
+                            Registry registry = LocateRegistry.getRegistry(newPort);
+                            MessagingServer newServer = (MessagingServer) registry.lookup("MessagingService");
+    
+                            // Update the client connection
+                            newServer.registerClient(client.toString(), client); // Assuming toString is overridden for unique IDs
+                            clientMap.put(client, newPort);
+                            System.out.println("Reassigned client to new server at port: " + newPort);
+                        } else {
+                            System.err.println("No available servers to reassign client.");
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Failed to reassign client: " + e.getMessage());
+                    }
+                }
+            }
         }
     }
 }

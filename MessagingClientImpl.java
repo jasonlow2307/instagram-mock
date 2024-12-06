@@ -36,7 +36,6 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
     public static void main(String[] args) {
         try {
             MessagingClientImpl client = new MessagingClientImpl();
-
             Registry registry = LocateRegistry.getRegistry(1099);
             LoadBalancer coordinator = (LoadBalancer) registry.lookup("ServerCoordinator");
 
