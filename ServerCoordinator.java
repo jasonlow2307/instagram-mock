@@ -14,4 +14,6 @@ public interface ServerCoordinator extends Remote {
 
     // Get all registered servers and their loads (optional for debugging)
     Map<Integer, Integer> getServerLoads() throws RemoteException;
+
+    void syncServerState(int port, Map<String, Object> state) throws RemoteException;
 }

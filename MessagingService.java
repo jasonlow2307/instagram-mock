@@ -20,5 +20,6 @@ public interface MessagingService extends Remote {
     void unfollowUser(String follower, String followee) throws RemoteException; // New
     void registerClient(String username, ClientCallback client) throws RemoteException;
     Map<String, Set<String>> listOnlineUsers() throws RemoteException; // Updated
+    void updateState(Map<String, Object> newState) throws RemoteException;
     // Other methods...
 }
