@@ -22,8 +22,8 @@ public class ServerCoordinatorClient {
             //coordinator.updateLoad("localhost:1099", 8);
 
             // Get least-loaded server
-            int leastLoaded = coordinator.getLeastLoadedServer();
-            System.out.println("Least-loaded server: " + leastLoaded);
+//            int leastLoaded = coordinator.getLeastLoadedServer();
+//            System.out.println("Least-loaded server: " + leastLoaded);
 
             //String command = String.format("java MessagingServer %d", port);
             //Runtime.getRuntime().exec(command);

@@ -1,3 +1,4 @@
+import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -29,29 +30,25 @@ public class MessagingClient extends UnicastRemoteObject implements ClientCallba
         System.out.print("You: ");
     }
 
-    private boolean connectToServer() {
-        for (String address : SERVER_ADDRESSES) {
-            try {
-                String[] hostPort = address.split(":");
-                String host = hostPort[0];
-                int port = Integer.parseInt(hostPort[1]);
-                Registry registry = LocateRegistry.getRegistry(host, port);
+    private boolean connectToServer(int port) throws NotBoundException, RemoteException {
+
+                Registry registry = LocateRegistry.getRegistry("localhost", port);
                 server = (MessagingService) registry.lookup("MessagingService");
-                System.out.println("Connected to server: " + address);
+                System.out.println("Connected to server at port: " + port);
                 return true;
-            } catch (Exception e) {
-                System.err.println("Failed to connect to server: " + address);
-            }
-        }
-        System.err.println("All servers are unavailable.");
-        return false;
     }
 
     public static void main(String[] args) {
         try {
             MessagingClient client = new MessagingClient();
 
-            if (!client.connectToServer()) {
+            Registry registry = LocateRegistry.getRegistry(1099);
+            ServerCoordinator coordinator = (ServerCoordinator) registry.lookup("ServerCoordinator");
+
+            int leastLoadedPort = coordinator.getLeastLoadedServer();
+            System.out.println("Least-loaded server: " + leastLoadedPort);
+
+            if (!client.connectToServer(leastLoadedPort)) {
                 System.exit(1); // Exit if unable to connect to any server
             }
 
@@ -189,7 +186,7 @@ public class MessagingClient extends UnicastRemoteObject implements ClientCallba
                     }
                 } catch (RemoteException e) {
                     System.err.println("Server connection lost. Attempting to reconnect...");
-                    if (!client.connectToServer()) {
+                    if (!client.connectToServer(1009)) {
                         System.out.println("Failed to reconnect. Exiting...");
                         System.exit(1);
                     }
