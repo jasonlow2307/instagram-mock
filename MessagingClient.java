@@ -19,8 +19,7 @@ public class MessagingClient extends UnicastRemoteObject implements ClientCallba
 
     @Override
     public void receiveMessage(String message) throws RemoteException {
-        System.out.println("\n" + message);
-        System.out.print("You: ");
+        System.out.println(message); // Display the message received'
     }
 
     @Override
@@ -101,7 +100,6 @@ public class MessagingClient extends UnicastRemoteObject implements ClientCallba
                                 System.out.println("Joined chatroom: " + roomName);
                                 System.out.println("Type 'quit' to exit the chatroom.");
                                 while (true) {
-                                    System.out.print("You: ");
                                     String chatMessage = scanner.nextLine();
                                     if (chatMessage.equalsIgnoreCase("quit")) {
                                         break;
@@ -127,7 +125,6 @@ public class MessagingClient extends UnicastRemoteObject implements ClientCallba
                                     System.out.println("Joined chatroom: " + roomName);
                                     System.out.println("Type 'quit' to exit the chatroom.");
                                     while (true) {
-                                        System.out.print("You: ");
                                         String chatMessage = scanner.nextLine();
                                         if (chatMessage.equalsIgnoreCase("quit")) {
                                             break;

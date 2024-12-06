@@ -134,11 +134,13 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
     @Override
     public void sendMessageToChatroom(String roomName, String message, ClientCallback sender) throws RemoteException {
         if (chatrooms.containsKey(roomName)) {
+            String senderUsername = onlineUsers.get(sender); // Retrieve the sender's username
             for (ClientCallback client : chatrooms.get(roomName)) {
                 if (!client.equals(sender)) {
-                    client.receiveMessage("[" + roomName + "] " + message);
+                    client.receiveMessage(senderUsername + ": " + message); // Include sender's username
                 }
             }
+            System.out.println(senderUsername + " sent message to chatroom [" + roomName + "]: " + message);
         } else {
             System.out.println("Chatroom not found: " + roomName);
         }
