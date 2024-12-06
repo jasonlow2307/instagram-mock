@@ -16,10 +16,6 @@ public interface MessagingService extends Remote {
     List<Post> getFeed() throws RemoteException;
     void likePost(String username, int postId) throws RemoteException;
     void commentOnPost(String username, int postId, String comment) throws RemoteException;
-    void synchronizeState(List<ClientCallback> clients, List<Post> posts, Map<String, List<ClientCallback>> chatrooms) throws RemoteException;
-    void registerBackup(MessagingService backupServer) throws RemoteException; // New method
-
-
     void followUser(String follower, String followee) throws RemoteException; // New
     void unfollowUser(String follower, String followee) throws RemoteException; // New
     void registerClient(String username, ClientCallback client) throws RemoteException;
