@@ -7,11 +7,11 @@ public interface ServerCoordinator extends Remote {
     void registerServer(String address, int load, int port) throws RemoteException;
 
     // Update the load of an existing server
-    void updateLoad(String address, int load) throws RemoteException;
+    void updateLoad(String address, int load, int port) throws RemoteException;
 
     // Get the least-loaded server
-    String getLeastLoadedServer() throws RemoteException;
+    int getLeastLoadedServer() throws RemoteException;
 
     // Get all registered servers and their loads (optional for debugging)
-    Map<String, Integer> getServerLoads() throws RemoteException;
+    Map<Integer, Integer> getServerLoads() throws RemoteException;
 }

@@ -210,25 +210,25 @@ public class MessagingClient extends UnicastRemoteObject implements ClientCallba
         }
     }
 
-    private boolean connectToLeastLoadedServer() {
-        try {
-            Registry registry = LocateRegistry.getRegistry("localhost", 1099);
-            ServerCoordinator coordinator = (ServerCoordinator) registry.lookup("ServerCoordinator");
-            String serverAddress = coordinator.getLeastLoadedServer();
-
-            if (serverAddress != null) {
-                String[] hostPort = serverAddress.split(":");
-                String host = hostPort[0];
-                int port = Integer.parseInt(hostPort[1]);
-                Registry serverRegistry = LocateRegistry.getRegistry(host, port);
-                server = (MessagingService) serverRegistry.lookup("MessagingService");
-                System.out.println("Connected to least-loaded server: " + serverAddress);
-                return true;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return false;
-    }
+//    private boolean connectToLeastLoadedServer() {
+//        try {
+//            Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+//            ServerCoordinator coordinator = (ServerCoordinator) registry.lookup("ServerCoordinator");
+//            int serverPort = coordinator.getLeastLoadedServer();
+//
+//            if (serverAddress != null) {
+//                String[] hostPort = serverAddress.split(":");
+//                String host = hostPort[0];
+//                int port = Integer.parseInt(hostPort[1]);
+//                Registry serverRegistry = LocateRegistry.getRegistry(host, port);
+//                server = (MessagingService) serverRegistry.lookup("MessagingService");
+//                System.out.println("Connected to least-loaded server: " + serverAddress);
+//                return true;
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//        return false;
+//    }
 
 }

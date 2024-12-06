@@ -30,9 +30,9 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         onlineUsers = new HashMap<>();
         this.currentPort = currentPort;
 
-        System.out.println("Before calling monitorAndScale...");
-        monitorAndScale();
-        System.out.println("After calling monitorAndScale...");
+//        System.out.println("Before calling monitorAndScale...");
+//        monitorAndScale();
+//        System.out.println("After calling monitorAndScale...");
     }
 
     protected MessagingServer(int currentPort) throws RemoteException {
@@ -43,10 +43,11 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         followers = new HashMap<>();
         onlineUsers = new HashMap<>();
         this.currentPort = currentPort;
+        System.out.println("SERVER CREATED ON PORT " + currentPort);
 
-        System.out.println("Before calling monitorAndScale...");
-        monitorAndScale();
-        System.out.println("After calling monitorAndScale...");
+//        System.out.println("Before calling monitorAndScale...");
+//        monitorAndScale();
+//        System.out.println("After calling monitorAndScale...");
     }
 
     @Override

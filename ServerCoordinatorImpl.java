@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ServerCoordinatorImpl extends UnicastRemoteObject implements ServerCoordinator {
-    private final Map<String, Integer> serverLoadMap;
+    private final Map<Integer, Integer> serverLoadMap;
 
     // Constructor
     protected ServerCoordinatorImpl() throws RemoteException {
@@ -23,14 +23,14 @@ public class ServerCoordinatorImpl extends UnicastRemoteObject implements Server
         MessagingServer server = new MessagingServer(port);
         Registry registry = LocateRegistry.getRegistry(port);
         registry.rebind("MessagingService", server);
-        serverLoadMap.put(address, load);
+        serverLoadMap.put(port, load);
         System.out.println("Registered server: " + address + " with load: " + load);
     }
 
     @Override
-    public synchronized void updateLoad(String address, int load) throws RemoteException {
+    public synchronized void updateLoad(String address, int load, int port) throws RemoteException {
         if (serverLoadMap.containsKey(address)) {
-            serverLoadMap.put(address, load);
+            serverLoadMap.put(port, load);
             System.out.println("Updated server: " + address + " with load: " + load);
         } else {
             System.out.println("Server not registered: " + address);
@@ -38,16 +38,16 @@ public class ServerCoordinatorImpl extends UnicastRemoteObject implements Server
     }
 
     @Override
-    public synchronized String getLeastLoadedServer() throws RemoteException {
+    public synchronized int getLeastLoadedServer() throws RemoteException {
         return serverLoadMap.entrySet()
                 .stream()
                 .min(Comparator.comparingInt(Map.Entry::getValue))
                 .map(Map.Entry::getKey)
-                .orElse(null);
+                .orElse(0);
     }
 
     @Override
-    public synchronized Map<String, Integer> getServerLoads() throws RemoteException {
+    public synchronized Map<Integer, Integer> getServerLoads() throws RemoteException {
         return new HashMap<>(serverLoadMap);
     }
 }
