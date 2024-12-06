@@ -1,9 +1,9 @@
 import java.rmi.RemoteException;
 
-public class TestClientCallback implements ClientCallback {
+public class TestMessagingClient implements MessagingClient {
     private final String username;
 
-    public TestClientCallback(String username) {
+    public TestMessagingClient(String username) {
         this.username = username;
     }
 

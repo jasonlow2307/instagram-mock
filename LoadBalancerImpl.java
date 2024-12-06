@@ -7,11 +7,11 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ServerCoordinatorImpl extends UnicastRemoteObject implements ServerCoordinator {
+public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalancer {
     private final Map<Integer, Integer> serverLoadMap;
 
     // Constructor
-    protected ServerCoordinatorImpl() throws RemoteException {
+    protected LoadBalancerImpl() throws RemoteException {
         super();
         serverLoadMap = new HashMap<>();
     }
@@ -21,7 +21,7 @@ public class ServerCoordinatorImpl extends UnicastRemoteObject implements Server
 
         System.setProperty("java.rmi.server.hostname", "localhost");
         LocateRegistry.createRegistry(port);
-        MessagingServer server = new MessagingServer(port);
+        MessagingServerImpl server = new MessagingServerImpl(port);
         Registry registry = LocateRegistry.getRegistry(port);
         registry.rebind("MessagingService", server);
         serverLoadMap.put(port, load);
@@ -62,7 +62,7 @@ public class ServerCoordinatorImpl extends UnicastRemoteObject implements Server
             if (otherPort != port) {
                 try {
                     Registry registry = LocateRegistry.getRegistry(otherPort);
-                    MessagingService otherServer = (MessagingService) registry.lookup("MessagingService");
+                    MessagingServer otherServer = (MessagingServer) registry.lookup("MessagingService");
 
                     otherServer.updateState(state);
                     System.out.println("State synchronized to server at port: " + otherPort);
@@ -71,6 +71,40 @@ public class ServerCoordinatorImpl extends UnicastRemoteObject implements Server
                     e.printStackTrace(); // Include stack trace for debugging
                 }
             }
+        }
+    }
+
+    public static void main(String[] args) {
+        try {
+            // Create and export the server coordinator
+            LoadBalancerImpl coordinator = new LoadBalancerImpl();
+
+            // Start the RMI registry (use a standard port)
+            Registry registry = LocateRegistry.createRegistry(1099);
+            registry.rebind("ServerCoordinator", coordinator);
+
+            System.out.println("ServerCoordinator is running on port 1099...");
+
+            // Register servers
+            coordinator.registerServer("localhost:1100", 0, 1100);
+            coordinator.registerServer("localhost:1101", 0, 1101);
+
+            // Update server loads
+            //coordinator.updateLoad("localhost:1099", 8);
+
+            // Get least-loaded server
+//            int leastLoaded = coordinator.getLeastLoadedServer();
+//            System.out.println("Least-loaded server: " + leastLoaded);
+
+            //String command = String.format("java MessagingServer %d", port);
+            //Runtime.getRuntime().exec(command);
+
+            // Print all server loads
+            Map<Integer, Integer> serverLoads = coordinator.getServerLoads();
+            System.out.println("Server loads: " + serverLoads);
+        } catch (Exception e) {
+            System.err.println("Client exception: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }

@@ -3,7 +3,7 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.Map;
 
-public interface ServerCoordinator extends Remote {
+public interface LoadBalancer extends Remote {
     // Register a new server with its load
     void registerServer(String address, int load, int port) throws RemoteException, NotBoundException;
 
