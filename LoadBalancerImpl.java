@@ -27,6 +27,22 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
         checkLoad();
     }
 
+    @Override
+    public synchronized void removeClient(MessagingClient client) throws RemoteException {
+        System.out.println("Removed Client: " + client);
+        if (clientMap.containsKey(client)) {
+            int port = clientMap.get(client);
+            clientMap.remove(client);
+
+            // Decrement the load for the respective port
+            serverLoadMap.put(port, serverLoadMap.get(port) - 1);
+
+            System.out.println("Client removed. Updated load for port " + port + ": " + serverLoadMap.get(port));
+        } else {
+            System.out.println("Client not found in load balancer.");
+        }
+    }
+
     int LOAD_THRESHOLD = 1;
     private synchronized void checkLoad() {
         System.out.println("CHECKING LOAD");
@@ -70,13 +86,14 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
     }
 
     @Override
-    public synchronized void registerServer(String address, int load, int port) throws RemoteException, NotBoundException {
+    public synchronized void registerServer(String address, int load, int port) throws IOException, NotBoundException {
 
-        System.setProperty("java.rmi.server.hostname", "localhost");
-        LocateRegistry.createRegistry(port);
-        MessagingServerImpl server = new MessagingServerImpl(port);
-        Registry registry = LocateRegistry.getRegistry(port);
-        registry.rebind("MessagingService", server);
+        String command = String.format("java MessagingServerImpl %d", port);
+        Runtime.getRuntime().exec(command);
+
+        System.out.println("SERVER CREATED USING COMMAND");
+
+
         serverLoadMap.put(port, load);
         System.out.println("Registered server: " + address + " with load: " + load);
     }
@@ -140,6 +157,7 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
 
             // Register servers
             coordinator.registerServer("localhost:1100", 0, 1100);
+            coordinator.registerServer("localhost:1101", 0, 1101);
 
             // Print all server loads
             Map<Integer, Integer> serverLoads = coordinator.getServerLoads();

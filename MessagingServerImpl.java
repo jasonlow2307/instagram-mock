@@ -7,6 +7,8 @@ import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.*;
 
+import static java.lang.Integer.parseInt;
+
 public class MessagingServerImpl extends UnicastRemoteObject implements MessagingServer {
     private LoadBalancer coordinator;
     private int currentLoad = 0;
@@ -64,7 +66,15 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         System.out.println("New client registered: " + username);
         System.out.println("Total clients: " + clients.size()); // Log client count
         notifyStateChange();
+    }
 
+    @Override
+    public void decrementLoad() throws RemoteException {
+        currentLoad--;
+    }
+
+    @Override
+    public void incrementLoad() throws RemoteException {
         currentLoad++;
         coordinator.updateLoad(currentLoad, currentPort);
     }
@@ -238,5 +248,13 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         }
     }
 
+   public static void main(String[] args) throws RemoteException, NotBoundException {
+        int port = parseInt(args[0]);
+       System.setProperty("java.rmi.server.hostname", "localhost");
+       LocateRegistry.createRegistry(port);
+       MessagingServerImpl server = new MessagingServerImpl(port);
+       Registry registry = LocateRegistry.getRegistry(port);
+       registry.rebind("MessagingService", server);
+   }
 
 }

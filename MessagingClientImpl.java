@@ -40,6 +40,17 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
             Registry registry = LocateRegistry.getRegistry(1099);
             LoadBalancer coordinator = (LoadBalancer) registry.lookup("ServerCoordinator");
 
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                try {
+                    System.out.println("\nShutting down...");
+                    coordinator.removeClient(client);
+                    client.server.decrementLoad();
+                } catch (Exception e) {
+                    System.err.println("Failed to notify load balancer on shutdown: " + e.getMessage());
+                }
+            }));
+
+
             int leastLoadedPort = coordinator.getLeastLoadedServer();
             System.out.println("Least-loaded server: " + leastLoadedPort);
 
@@ -48,6 +59,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
             }
 
             coordinator.addClient(client, leastLoadedPort);
+            client.server.incrementLoad();
 
             Scanner scanner = new Scanner(System.in);
 
