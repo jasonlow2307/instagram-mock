@@ -1,4 +1,6 @@
 import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -14,7 +16,10 @@ public class ServerCoordinatorImpl extends UnicastRemoteObject implements Server
     }
 
     @Override
-    public synchronized void registerServer(String address, int load) throws RemoteException {
+    public synchronized void registerServer(String address, int load, int port) throws RemoteException {
+        MessagingServer server = new MessagingServer(port);
+        Registry registry = LocateRegistry.getRegistry(port);
+        registry.rebind("MessagingService", server);
         serverLoadMap.put(address, load);
         System.out.println("Registered server: " + address + " with load: " + load);
     }

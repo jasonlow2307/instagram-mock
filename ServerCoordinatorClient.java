@@ -12,15 +12,18 @@ public class ServerCoordinatorClient {
             ServerCoordinator coordinator = (ServerCoordinator) registry.lookup("ServerCoordinator");
 
             // Register servers
-            coordinator.registerServer("localhost:1099", 10);
-            coordinator.registerServer("localhost:1100", 5);
+            coordinator.registerServer("localhost:1099", 10, 1099);
+            coordinator.registerServer("localhost:1100", 5, 1100);
 
             // Update server loads
-            coordinator.updateLoad("localhost:1099", 8);
+            //coordinator.updateLoad("localhost:1099", 8);
 
             // Get least-loaded server
             String leastLoaded = coordinator.getLeastLoadedServer();
             System.out.println("Least-loaded server: " + leastLoaded);
+
+            //String command = String.format("java MessagingServer %d", port);
+            //Runtime.getRuntime().exec(command);
 
             // Print all server loads
             Map<String, Integer> serverLoads = coordinator.getServerLoads();

@@ -35,6 +35,20 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         System.out.println("After calling monitorAndScale...");
     }
 
+    protected MessagingServer(int currentPort) throws RemoteException {
+        super();
+        clients = new ArrayList<>();
+        posts = new ArrayList<>();
+        chatrooms = new HashMap<>();
+        followers = new HashMap<>();
+        onlineUsers = new HashMap<>();
+        this.currentPort = currentPort;
+
+        System.out.println("Before calling monitorAndScale...");
+        monitorAndScale();
+        System.out.println("After calling monitorAndScale...");
+    }
+
     @Override
     public void sendMessage(String message) throws RemoteException {
         System.out.println("Broadcasting message: " + message);
@@ -276,14 +290,6 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
             Registry registry = LocateRegistry.getRegistry(port);
             registry.rebind("MessagingService", server);
             System.out.println((isPrimary ? "Primary" : "Backup") + " server running at port " + port);
-
-            // Start monitoring and scaling
-            System.out.println("Starting monitorAndScale...");
-            server.monitorAndScale();
-
-            // Simulate client load
-            System.out.println("Simulating client load...");
-            server.simulateClientLoad(21); // Exceed CLIENT_THRESHOLD for testing
 
         } catch (Exception e) {
             System.err.println("Error during server setup or execution:");
