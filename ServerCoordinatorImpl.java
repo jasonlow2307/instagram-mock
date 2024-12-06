@@ -51,6 +51,28 @@ public class ServerCoordinatorImpl extends UnicastRemoteObject implements Server
     public synchronized Map<Integer, Integer> getServerLoads() throws RemoteException {
         return new HashMap<>(serverLoadMap);
     }
+
+    @Override
+    public synchronized void syncServerState(int port, Map<String, Object> state) throws RemoteException {
+        System.out.println("Syncing state from server at port " + port);
+
+        // Propagate the updated state to all other servers
+        for (Map.Entry<Integer, Integer> entry : serverLoadMap.entrySet()) {
+            int otherPort = entry.getKey();
+            if (otherPort != port) {
+                try {
+                    Registry registry = LocateRegistry.getRegistry(otherPort);
+                    MessagingService otherServer = (MessagingService) registry.lookup("MessagingService");
+
+                    otherServer.updateState(state);
+                    System.out.println("State synchronized to server at port: " + otherPort);
+                } catch (Exception e) {
+                    System.err.println("Failed to sync state to server at port " + otherPort + ": " + e);
+                    e.printStackTrace(); // Include stack trace for debugging
+                }
+            }
+        }
+    }
 }
 
 

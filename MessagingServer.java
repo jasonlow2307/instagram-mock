@@ -1,5 +1,3 @@
-
-
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.rmi.NotBoundException;
@@ -69,6 +67,7 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
 
         System.out.println("New client registered: " + username);
         System.out.println("Total clients: " + clients.size()); // Log client count
+        notifyStateChange();
 
         currentLoad++;
         coordinator.updateLoad(currentLoad, currentPort);
@@ -82,6 +81,7 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
 
         followers.get(followee).add(follower);
         System.out.println(follower + " is now following " + followee);
+        notifyStateChange();
     }
 
     public void unfollowUser(String follower, String followee) throws RemoteException {
@@ -92,6 +92,7 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
 
         followers.get(followee).remove(follower);
         System.out.println(follower + " unfollowed " + followee);
+        notifyStateChange();
     }
 
     @Override
@@ -119,6 +120,7 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         if (!chatrooms.containsKey(roomName)) {
             chatrooms.put(roomName, new ArrayList<>());
             System.out.println("Chatroom created: " + roomName);
+            notifyStateChange();
         } else {
             System.out.println("Chatroom already exists: " + roomName);
         }
@@ -144,7 +146,8 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         if (chatrooms.containsKey(roomName)) {
             for (ClientCallback client : chatrooms.get(roomName)) {
                 if (!client.equals(sender)) {
-                    client.receiveMessage("[" + roomName + "] " + message);
+                    // include the username of the sender in the message
+                    client.receiveMessage(onlineUsers.get(sender) + ": " + message);
                 }
             }
         } else {
@@ -157,6 +160,7 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         Post post = new Post(username, content);
         posts.add(post);
         System.out.println("New post created by " + username + ": " + content);
+        notifyStateChange();
     }
 
     @Override
@@ -170,6 +174,7 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
             if (post.getId() == postId) {
                 post.addLike();
                 System.out.println(username + " liked post " + postId);
+                notifyStateChange();
                 return;
             }
         }
@@ -182,6 +187,7 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
             if (post.getId() == postId) {
                 post.addComment(username + ": " + comment);
                 System.out.println(username + " commented on post " + postId);
+                notifyStateChange();
                 return;
             }
         }
@@ -239,6 +245,51 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         }).start();
     }
 
+    private void notifyStateChange() {
+        try {
+            Registry registry = LocateRegistry.getRegistry(1099);
+            ServerCoordinator coordinator = (ServerCoordinator) registry.lookup("ServerCoordinator");
+
+            // Create a state map to send
+            Map<String, Object> state = new HashMap<>();
+            state.put("clients", clients); // Send client details if needed
+            state.put("posts", new ArrayList<>(posts));
+            state.put("chatrooms", new HashMap<>(chatrooms));
+            state.put("followers", new HashMap<>(followers));
+            state.put("onlineUsers", new HashMap<>(onlineUsers));
+
+            coordinator.syncServerState(currentPort, state);
+            System.out.println("State change notified to coordinator.");
+        } catch (Exception e) {
+            System.err.println("Failed to notify state change: " + e);
+            e.printStackTrace(); // Add stack trace for debugging
+        }
+    }
+
+    @Override
+    public synchronized void updateState(Map<String, Object> newState) throws RemoteException {
+        try {
+            System.out.println("Updating state with: " + newState);
+
+            // Clear current state
+            clients.clear();
+            posts.clear();
+            chatrooms.clear();
+            followers.clear();
+            onlineUsers.clear();
+
+            // Apply the new state
+            clients.addAll((List<ClientCallback>) newState.get("clients"));
+            posts.addAll((List<Post>) newState.get("posts"));
+            chatrooms.putAll((Map<String, List<ClientCallback>>) newState.get("chatrooms"));
+            followers.putAll((Map<String, Set<String>>) newState.get("followers"));
+            onlineUsers.putAll((Map<ClientCallback, String>) newState.get("onlineUsers"));
+            System.out.println("State successfully updated.");
+
+        } catch (ClassCastException e) {
+            System.err.println("Failed to update state: Invalid state format - " + e.getMessage());
+        }
+    }
 
 
 }
