@@ -136,6 +136,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         if (chatrooms.containsKey(roomName)) {
             chatrooms.get(roomName).add(client);
             System.out.println("Client joined chatroom: " + roomName);
+            notifyStateChange();
         } else {
             System.out.println("Chatroom not found: " + roomName);
         }
@@ -148,6 +149,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
                 if (!client.equals(sender)) {
                     // include the username of the sender in the message
                     client.receiveMessage(onlineUsers.get(sender) + ": " + message);
+                    System.out.println("RECEIVEDMESSAGE");
                 }
             }
         } else {
