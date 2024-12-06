@@ -197,7 +197,6 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
                                 Registry registry = LocateRegistry.getRegistry(port);
                                 MessagingServer server = (MessagingServer) registry.lookup("MessagingService");
                                 server.ping(); // Assume `MessagingServer` has a ping method for heartbeat
-                                System.out.println("Server at port " + port + " is alive.");
                             } catch (Exception e) {
                                 System.err.println("Server at port " + port + " is unresponsive. Removing it.");
                                 iterator.remove();
@@ -229,9 +228,9 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
                         if (newPort != 0) { // Ensure a server is available
                             Registry registry = LocateRegistry.getRegistry(newPort);
                             MessagingServer newServer = (MessagingServer) registry.lookup("MessagingService");
-    
                             // Update the client connection
                             newServer.registerClient(client.toString(), client); // Assuming toString is overridden for unique IDs
+                            client.connectToServer(newPort);
                             clientMap.put(client, newPort);
                             System.out.println("Reassigned client to new server at port: " + newPort);
                         } else {

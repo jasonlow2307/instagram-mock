@@ -26,7 +26,8 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
         System.out.print("You: ");
     }
 
-    private boolean connectToServer(int port) throws NotBoundException, RemoteException {
+    @Override
+    public boolean connectToServer(int port) throws NotBoundException, RemoteException {
         Registry registry = LocateRegistry.getRegistry("localhost", port);
         server = (MessagingServer) registry.lookup("MessagingService");
         System.out.println("Connected to server at port: " + port);

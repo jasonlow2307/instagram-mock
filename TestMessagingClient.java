@@ -16,4 +16,9 @@ public class TestMessagingClient implements MessagingClient {
     public void receiveChatMessage(String roomName, String message) throws RemoteException {
         System.out.println("[" + username + "] [" + roomName + "] Chat message: " + message);
     }
+
+    @Override
+    public boolean connectToServer(int port) throws RemoteException {
+        return true;
+    }
 }
