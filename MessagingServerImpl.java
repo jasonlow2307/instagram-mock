@@ -31,10 +31,6 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         // Pull load balancer into server for updating load
         Registry registry = LocateRegistry.getRegistry(1099);
         this.coordinator = (LoadBalancer) registry.lookup("ServerCoordinator");
-
-        System.out.println("Before calling monitorAndScale...");
-        monitorAndScale();
-        System.out.println("After calling monitorAndScale...");
     }
 
     @Override
@@ -194,57 +190,6 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
             }
         }
         System.out.println("Post not found: " + postId);
-    }
-
-    private static final int CLIENT_THRESHOLD = 20; // Adjust as necessary
-    private LoadMonitor loadMonitor = new LoadMonitor();
-
-    private void monitorAndScale() {
-        System.out.println("Starting monitorAndScale thread...");
-        new Thread(() -> {
-            while (true) {
-                System.out.println("Monitoring client load...");
-                int currentClientCount = clients.size();
-                System.out.println("Current client count: " + currentClientCount);
-                if (currentClientCount > CLIENT_THRESHOLD) {
-                    System.out.println("Client threshold exceeded. Spawning new server...");
-                    try {
-                        int newPort = findAvailablePort(); // Dynamically find an available port
-                        ServerSpawner.spawnNewServer(newPort, false, currentPort); // Use currentPort
-                        System.out.println("New server spawned at port: " + newPort);
-                    } catch (Exception e) {
-                        System.err.println("Failed to spawn a new server: " + e.getMessage());
-                    }
-                }
-                try {
-                    Thread.sleep(5000); // Check every 5 seconds
-                } catch (InterruptedException ignored) {}
-            }
-        }).start();
-    }
-
-
-
-    private int findAvailablePort() throws IOException {
-        // Use a ServerSocket to find an available port dynamically
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort(); // Get an available port
-        }
-    }
-
-    public void simulateClientLoad(int numberOfClients) {
-        new Thread(() -> {
-            try {
-                for (int i = 0; i < numberOfClients; i++) {
-                    String username = "TestUser" + i;
-                    registerClient(username, new TestMessagingClient(username));
-                    System.out.println("Simulated client: " + username);
-                    Thread.sleep(50); // Small delay between client registrations
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }).start();
     }
 
     private void notifyStateChange() {

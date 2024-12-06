@@ -1,3 +1,5 @@
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -10,17 +12,61 @@ import java.util.Map;
 public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalancer {
     private final Map<Integer, Integer> serverLoadMap;
     // store all clients and their port
-    private final Map<MessagingClient, Integer> clientMap = new HashMap<>();
+    private final Map<MessagingClient, Integer> clientMap;
 
     // Constructor
     protected LoadBalancerImpl() throws RemoteException {
         super();
         serverLoadMap = new HashMap<>();
+        clientMap = new HashMap<>();
     }
 
     @Override   
     public void addClient(MessagingClient client, int port) {
         clientMap.put(client, port);
+        checkLoad();
+    }
+
+    int LOAD_THRESHOLD = 1;
+    private synchronized void checkLoad() {
+        System.out.println("CHECKING LOAD");
+        for (Map.Entry<Integer, Integer> entry : serverLoadMap.entrySet()) {
+            int port = entry.getKey();
+            int load = entry.getValue();
+
+            if (load > LOAD_THRESHOLD) {
+                System.out.println("Load on port " + port + " exceeds threshold. Spawning new server...");
+                spawnNewServer();
+                break;
+            }
+        }
+    }
+
+    private void spawnNewServer() {
+        try {
+            // Find an available port
+            int newPort = findAvailablePort();
+
+            // Spawn the new server (using an example command, adjust as needed)
+            registerServer("localhost:newserver", 0, newPort);
+
+            // Register the new server in the serverLoadMap with 0 clients initially
+            serverLoadMap.put(newPort, 0);
+
+            System.out.println("New server spawned on port " + newPort);
+        } catch (IOException e) {
+            System.err.println("Failed to spawn new server: " + e.getMessage());
+        } catch (NotBoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private int findAvailablePort() {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort(); // Dynamically find an available port
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to find an available port", e);
+        }
     }
 
     @Override
@@ -94,17 +140,6 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
 
             // Register servers
             coordinator.registerServer("localhost:1100", 0, 1100);
-            coordinator.registerServer("localhost:1101", 0, 1101);
-
-            // Update server loads
-            //coordinator.updateLoad("localhost:1099", 8);
-
-            // Get least-loaded server
-//            int leastLoaded = coordinator.getLeastLoadedServer();
-//            System.out.println("Least-loaded server: " + leastLoaded);
-
-            //String command = String.format("java MessagingServer %d", port);
-            //Runtime.getRuntime().exec(command);
 
             // Print all server loads
             Map<Integer, Integer> serverLoads = coordinator.getServerLoads();
