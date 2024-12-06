@@ -17,6 +17,9 @@ public class ServerCoordinatorImpl extends UnicastRemoteObject implements Server
 
     @Override
     public synchronized void registerServer(String address, int load, int port) throws RemoteException {
+
+        System.setProperty("java.rmi.server.hostname", "localhost");
+        LocateRegistry.createRegistry(port);
         MessagingServer server = new MessagingServer(port);
         Registry registry = LocateRegistry.getRegistry(port);
         registry.rebind("MessagingService", server);

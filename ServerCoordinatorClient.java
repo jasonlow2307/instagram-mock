@@ -12,8 +12,8 @@ public class ServerCoordinatorClient {
             ServerCoordinator coordinator = (ServerCoordinator) registry.lookup("ServerCoordinator");
 
             // Register servers
-            coordinator.registerServer("localhost:1099", 10, 1099);
-            coordinator.registerServer("localhost:1100", 5, 1100);
+            coordinator.registerServer("localhost:1100", 10, 1100);
+            coordinator.registerServer("localhost:1101", 5, 1101);
 
             // Update server loads
             //coordinator.updateLoad("localhost:1099", 8);
