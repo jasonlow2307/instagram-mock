@@ -47,6 +47,8 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                 System.exit(1); // Exit if unable to connect to any server
             }
 
+            coordinator.addClient(client, leastLoadedPort);
+
             Scanner scanner = new Scanner(System.in);
 
             // Prompt for username

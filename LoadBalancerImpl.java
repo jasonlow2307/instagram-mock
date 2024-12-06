@@ -9,11 +9,18 @@ import java.util.Map;
 
 public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalancer {
     private final Map<Integer, Integer> serverLoadMap;
+    // store all clients and their port
+    private final Map<MessagingClient, Integer> clientMap = new HashMap<>();
 
     // Constructor
     protected LoadBalancerImpl() throws RemoteException {
         super();
         serverLoadMap = new HashMap<>();
+    }
+
+    @Override   
+    public void addClient(MessagingClient client, int port) {
+        clientMap.put(client, port);
     }
 
     @Override
