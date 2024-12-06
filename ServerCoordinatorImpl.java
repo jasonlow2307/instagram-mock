@@ -1,3 +1,4 @@
+import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -16,7 +17,7 @@ public class ServerCoordinatorImpl extends UnicastRemoteObject implements Server
     }
 
     @Override
-    public synchronized void registerServer(String address, int load, int port) throws RemoteException {
+    public synchronized void registerServer(String address, int load, int port) throws RemoteException, NotBoundException {
 
         System.setProperty("java.rmi.server.hostname", "localhost");
         LocateRegistry.createRegistry(port);
@@ -28,12 +29,12 @@ public class ServerCoordinatorImpl extends UnicastRemoteObject implements Server
     }
 
     @Override
-    public synchronized void updateLoad(String address, int load, int port) throws RemoteException {
-        if (serverLoadMap.containsKey(address)) {
+    public synchronized void updateLoad(int load, int port) throws RemoteException {
+        if (serverLoadMap.containsKey(port)) {
             serverLoadMap.put(port, load);
-            System.out.println("Updated server: " + address + " with load: " + load);
+            System.out.println("Updated server: " + port + " with load: " + load);
         } else {
-            System.out.println("Server not registered: " + address);
+            System.out.println("Server not registered: " + port);
         }
     }
 

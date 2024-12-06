@@ -7,10 +7,6 @@ import java.util.*;
 
 public class MessagingClient extends UnicastRemoteObject implements ClientCallback {
     private String username;
-    private static final String[] SERVER_ADDRESSES = {
-            "localhost:1099", // Primary server
-            "localhost:1100"  // Secondary server
-    };
 
     private MessagingService server;
 

@@ -15,8 +15,8 @@ public class ServerCoordinatorClient {
             System.out.println("ServerCoordinator is running on port 1099...");
 
             // Register servers
-            coordinator.registerServer("localhost:1100", 10, 1100);
-            coordinator.registerServer("localhost:1101", 5, 1101);
+            coordinator.registerServer("localhost:1100", 0, 1100);
+            coordinator.registerServer("localhost:1101", 0, 1101);
 
             // Update server loads
             //coordinator.updateLoad("localhost:1099", 8);

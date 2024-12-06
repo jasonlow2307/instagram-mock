@@ -1,5 +1,8 @@
+
+
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -7,6 +10,8 @@ import java.rmi.server.UnicastRemoteObject;
 import java.util.*;
 
 public class MessagingServer extends UnicastRemoteObject implements MessagingService {
+    private ServerCoordinator coordinator;
+    private int currentLoad = 0;
     private final List<ClientCallback> clients; // List of connected clients
     private final List<Post> posts;            // List of posts for the feed
     private final Map<String, List<ClientCallback>> chatrooms; // Chatrooms and their participants
@@ -16,7 +21,7 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
 
     private final int currentPort;
 
-    protected MessagingServer(int currentPort) throws RemoteException {
+    protected MessagingServer(int currentPort) throws RemoteException, NotBoundException {
         super();
         clients = new ArrayList<>();
         posts = new ArrayList<>();
@@ -24,6 +29,10 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
         followers = new HashMap<>();
         onlineUsers = new HashMap<>();
         this.currentPort = currentPort;
+
+        // Pull load balancer into server for updating load
+        Registry registry = LocateRegistry.getRegistry(1099);
+        this.coordinator = (ServerCoordinator) registry.lookup("ServerCoordinator");
 
         System.out.println("Before calling monitorAndScale...");
         monitorAndScale();
@@ -60,6 +69,9 @@ public class MessagingServer extends UnicastRemoteObject implements MessagingSer
 
         System.out.println("New client registered: " + username);
         System.out.println("Total clients: " + clients.size()); // Log client count
+
+        currentLoad++;
+        coordinator.updateLoad(currentLoad, currentPort);
     }
 
     public void followUser(String follower, String followee) throws RemoteException {
