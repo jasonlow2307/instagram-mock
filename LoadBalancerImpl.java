@@ -21,6 +21,34 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
         clientMap = new HashMap<>();
     }
 
+    public void monitorAndScaleUp() {
+        new Thread(() -> {
+            while (true) {
+                try {
+                    System.out.println("CHECKING FOR SCALE UP");
+                    Thread.sleep(1000); // Check interval
+                    synchronized (serverLoadMap) {
+                        for (Map.Entry<Integer, Integer> entry : serverLoadMap.entrySet()) {
+                            int port = entry.getKey();
+                            int load = entry.getValue();
+
+                            if (load > LOAD_THRESHOLD) {
+                                System.out.println("Load on port " + port + " exceeds threshold. Scaling up...");
+                                int newPort = spawnNewServer();
+                                redistributeClients(port, newPort);
+                                break; // Avoid excessive scaling
+                            }
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    System.err.println("Monitor thread interrupted: " + e.getMessage());
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }).start();
+    }
+
+
     public void monitorAndScaleDown() {
         new Thread(() -> {
             while (true) {
@@ -104,7 +132,7 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
         }
     }
 
-    private void spawnNewServer() {
+    private int spawnNewServer() {
         try {
             // Find an available port
             int newPort = findAvailablePort();
@@ -116,12 +144,51 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
             serverLoadMap.put(newPort, 0);
 
             System.out.println("New server spawned on port " + newPort);
-        } catch (IOException e) {
+            return newPort;
+        } catch (IOException | NotBoundException e) {
             System.err.println("Failed to spawn new server: " + e.getMessage());
-        } catch (NotBoundException e) {
             throw new RuntimeException(e);
         }
     }
+
+    private void redistributeClients(int overloadedPort, int newPort) {
+        System.out.println("Redistributing clients from port " + overloadedPort + " to port " + newPort);
+        synchronized (clientMap) {
+            List<MessagingClient> clientsToMove = new ArrayList<>();
+
+            // Find clients connected to the overloaded port
+            for (Map.Entry<MessagingClient, Integer> entry : clientMap.entrySet()) {
+                if (entry.getValue() == overloadedPort) {
+                    clientsToMove.add(entry.getKey());
+                    if (clientsToMove.size() >= LOAD_THRESHOLD / 2) {
+                        // Move half of the load to the new server
+                        break;
+                    }
+                }
+            }
+
+            for (MessagingClient client : clientsToMove) {
+                try {
+                    // Reassign the client to the new server
+                    Registry registry = LocateRegistry.getRegistry(newPort);
+                    MessagingServer newServer = (MessagingServer) registry.lookup("MessagingService");
+                    newServer.registerClient(client.toString(), client); // Update the client connection
+                    client.connectToServer(newPort);
+
+                    // Update load maps
+                    clientMap.put(client, newPort);
+                    serverLoadMap.put(newPort, serverLoadMap.get(newPort) + 1);
+                    serverLoadMap.put(overloadedPort, serverLoadMap.get(overloadedPort) - 1);
+
+                    System.out.println("Moved client to new server on port: " + newPort);
+                } catch (Exception e) {
+                    System.err.println("Failed to move client to new server: " + e.getMessage());
+                }
+            }
+        }
+    }
+
+
 
     private int findAvailablePort() {
         try (ServerSocket socket = new ServerSocket(0)) {
@@ -207,6 +274,7 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
 
             coordinator.heartbeat();
             coordinator.monitorAndScaleDown();
+            coordinator.monitorAndScaleUp();
 
             // Update server loads
             //coordinator.updateLoad("localhost:1099", 8);
