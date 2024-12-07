@@ -227,7 +227,9 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
 
     @Override
     public synchronized Map<Integer, Integer> getServerLoads() throws RemoteException {
-        return new HashMap<>(serverLoadMap);
+        synchronized (serverLoadMap){
+            return new HashMap<>(serverLoadMap);
+        }
     }
 
     @Override
