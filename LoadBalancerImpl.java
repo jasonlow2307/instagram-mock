@@ -5,21 +5,66 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 
 public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalancer {
     private final Map<Integer, Integer> serverLoadMap;
     // store all clients and their port
     private final Map<MessagingClient, Integer> clientMap;
+    private final Map<Integer, Long> idleServerTimestamps = new HashMap<>();
+    private static final int SCALE_DOWN_DELAY = 10000;
 
     // Constructor
     protected LoadBalancerImpl() throws RemoteException {
         super();
         serverLoadMap = new HashMap<>();
         clientMap = new HashMap<>();
+    }
+
+    public void monitorAndScaleDown() {
+        new Thread(() -> {
+            while (true) {
+                try {
+                    System.out.println("CHECKING FOR SCALE DOWN");
+                    Thread.sleep(1000); // Check interval
+                    synchronized (serverLoadMap) {
+                        Iterator<Map.Entry<Integer, Integer>> iterator = serverLoadMap.entrySet().iterator();
+                        while (iterator.hasNext()) {
+                            Map.Entry<Integer, Integer> entry = iterator.next();
+                            int port = entry.getKey();
+                            int load = entry.getValue();
+
+                            if (load == 0 && serverLoadMap.size() > 1) {
+                                long currentTime = System.currentTimeMillis();
+                                if (!idleServerTimestamps.containsKey(port)) {
+                                    idleServerTimestamps.put(port, currentTime);
+                                } else if (currentTime - idleServerTimestamps.get(port) >= SCALE_DOWN_DELAY) {
+                                    System.out.println("Server on port " + port + " has been idle for 10 seconds. Scaling down...");
+                                    killServer(port);
+                                    iterator.remove();
+                                    idleServerTimestamps.remove(port);
+                                }
+                            } else {
+                                idleServerTimestamps.remove(port);
+                            }
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    System.err.println("Monitor thread interrupted: " + e.getMessage());
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }).start();
+    }
+
+    private void killServer(int port) {
+        try {
+            String command = String.format("java KillPortProcess %d", port);
+            Runtime.getRuntime().exec(command);
+            System.out.println("Executed scale-down command for server on port " + port);
+        } catch (IOException e) {
+            System.err.println("Failed to scale down server on port " + port + ": " + e.getMessage());
+        }
     }
 
     @Override   
@@ -161,6 +206,7 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
             coordinator.registerServer("localhost:1101", 0, 1101);
 
             coordinator.heartbeat();
+            coordinator.monitorAndScaleDown();
 
             // Update server loads
             //coordinator.updateLoad("localhost:1099", 8);
@@ -171,6 +217,45 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
 
             //String command = String.format("java MessagingServer %d", port);
             //Runtime.getRuntime().exec(command);
+
+            // Add a shutdown hook to clean up resources
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                System.out.println("Shutdown initiated. Cleaning up resources...");
+                synchronized (coordinator.serverLoadMap) {
+                    for (int port : coordinator.serverLoadMap.keySet()) {
+                        try {
+                            String command = String.format("java KillPortProcess %d", port);
+                            Runtime.getRuntime().exec(command);
+                            System.out.println("Killed server on port: " + port);
+                        } catch (IOException e) {
+                            System.err.println("Failed to kill server on port " + port + ": " + e.getMessage());
+                        }
+                    }
+                }
+            }));
+
+            // Start a thread to listen for user input
+            new Thread(() -> {
+                Scanner scanner = new Scanner(System.in);
+                while (true) {
+                    System.out.println("Enter a command (e.g., 'load' to print server loads):");
+                    String command = scanner.nextLine();
+
+                    if ("load".equalsIgnoreCase(command)) {
+                        try {
+                            Map<Integer, Integer> serverLoads = coordinator.getServerLoads();
+                            System.out.println("Current server loads:");
+                            for (Map.Entry<Integer, Integer> entry : serverLoads.entrySet()) {
+                                System.out.println("Port: " + entry.getKey() + ", Load: " + entry.getValue());
+                            }
+                        } catch (RemoteException e) {
+                            System.err.println("Error fetching server loads: " + e.getMessage());
+                        }
+                    } else {
+                        System.out.println("Unknown command. Try again.");
+                    }
+                }
+            }).start();
 
             // Print all server loads
             Map<Integer, Integer> serverLoads = coordinator.getServerLoads();
