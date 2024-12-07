@@ -71,6 +71,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     @Override
     public void decrementLoad() throws RemoteException {
         currentLoad--;
+        coordinator.updateLoad(currentLoad, currentPort);
     }
 
     @Override
