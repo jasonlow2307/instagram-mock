@@ -26,7 +26,9 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
             while (true) {
                 try {
                     Thread.sleep(5000); // Monitor interval
-                    
+
+                    // iterate through all servers and print their loads
+                    System.out.println("Server loads: " + serverLoadMap);
                     synchronized (serverLoadMap) {
                         Iterator<Map.Entry<Integer, Integer>> iterator = serverLoadMap.entrySet().iterator();
     
@@ -169,15 +171,22 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
             // Find an available port
             int newPort = findAvailablePort();
 
+            // get any server that is running, and sync the state to the new server
+            int oldPort = serverLoadMap.keySet().iterator().next();
+
             // Spawn the new server (using an example command, adjust as needed)
             registerServer("localhost:newserver", 0, newPort);
 
             // Register the new server in the serverLoadMap with 0 clients initially
             serverLoadMap.put(newPort, 0);
 
-            // need to sync the new server with the state of the other servers (havn't implemented this yet)
-
             System.out.println("New server spawned on port " + newPort);
+
+            
+            MessagingServer server = (MessagingServer) LocateRegistry.getRegistry(oldPort).lookup("MessagingService");
+            server.notifyStateChange();
+            System.out.println("Notified server at port " + oldPort + " to sync state to new server on port " + newPort);
+
             return newPort;
         } catch (IOException | NotBoundException e) {
             System.err.println("Failed to spawn new server: " + e.getMessage());
@@ -335,30 +344,6 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
                     }
                 }
             }));
-
-            // Start a thread to listen for user input
-            new Thread(() -> {
-                Scanner scanner = new Scanner(System.in);
-                while (true) {
-                    System.out.println("Enter a command (e.g., 'load' to print server loads):");
-                    String command = scanner.nextLine();
-
-                    if ("load".equalsIgnoreCase(command)) {
-                        try {
-                            Map<Integer, Integer> serverLoads = coordinator.getServerLoads();
-                            System.out.println("Current server loads:");
-                            for (Map.Entry<Integer, Integer> entry : serverLoads.entrySet()) {
-                                System.out.println("Port: " + entry.getKey() + ", Load: " + entry.getValue());
-                            }
-                        } catch (RemoteException e) {
-                            System.err.println("Error fetching server loads: " + e.getMessage());
-                        }
-                    } else {
-                        System.out.println("Unknown command. Try again.");
-                    }
-                }
-            }).start();
-
             // Print all server loads
             Map<Integer, Integer> serverLoads = coordinator.getServerLoads();
             System.out.println("Server loads: " + serverLoads);
