@@ -69,13 +69,13 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     }
 
     @Override
-    public void decrementLoad() throws RemoteException {
+    public synchronized void decrementLoad() throws RemoteException {
         currentLoad--;
         coordinator.updateLoad(currentLoad, currentPort);
     }
 
     @Override
-    public void incrementLoad() throws RemoteException {
+    public synchronized void incrementLoad() throws RemoteException {
         currentLoad++;
         coordinator.updateLoad(currentLoad, currentPort);
     }
@@ -203,7 +203,8 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         System.out.println("Post not found: " + postId);
     }
 
-    private void notifyStateChange() {
+    @Override
+    public void notifyStateChange() {
         try {
             Registry registry = LocateRegistry.getRegistry(1099);
             LoadBalancer coordinator = (LoadBalancer) registry.lookup("ServerCoordinator");
