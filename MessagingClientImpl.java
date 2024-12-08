@@ -61,6 +61,8 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
             coordinator.addClient(client, leastLoadedPort);
             client.server.incrementLoad();
 
+            coordinator.monitorAndManage();
+
             Scanner scanner = new Scanner(System.in);
 
             // Prompt for username
@@ -82,6 +84,8 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                     scanner.nextLine(); // Clear invalid input
                     continue;
                 }
+
+                coordinator.monitorAndManage();
 
                 try {
                     switch (choice) {

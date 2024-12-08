@@ -69,13 +69,13 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     }
 
     @Override
-    public synchronized void decrementLoad() throws RemoteException {
+    public void decrementLoad() throws RemoteException {
         currentLoad--;
         coordinator.updateLoad(currentLoad, currentPort);
     }
 
     @Override
-    public synchronized void incrementLoad() throws RemoteException {
+    public void incrementLoad() throws RemoteException {
         currentLoad++;
         coordinator.updateLoad(currentLoad, currentPort);
     }
@@ -226,7 +226,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     }
 
     @Override
-    public synchronized void updateState(Map<String, Object> newState) throws RemoteException {
+    public void updateState(Map<String, Object> newState) throws RemoteException {
         try {
             System.out.println("Updating state with: " + newState);
 
