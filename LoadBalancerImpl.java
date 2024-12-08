@@ -6,6 +6,12 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalancer {
     private final Map<Integer, Integer> serverLoadMap;
@@ -30,42 +36,44 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
                     // iterate through all servers and print their loads
                     System.out.println("Server loads: " + serverLoadMap);
                     synchronized (serverLoadMap) {
-                        Iterator<Map.Entry<Integer, Integer>> iterator = serverLoadMap.entrySet().iterator();
+                        synchronized (clientMap) {
+                            Iterator<Map.Entry<Integer, Integer>> iterator = serverLoadMap.entrySet().iterator();
     
-                        while (iterator.hasNext()) {
-                            Map.Entry<Integer, Integer> entry = iterator.next();
-                            int port = entry.getKey();
-                            int load = entry.getValue();
-    
-                            // Heartbeat: Check if the server is alive
-                            if (!isServerAlive(port)) {
-                                System.err.println("Server at port " + port + " is unresponsive. Removing it.");
-                                iterator.remove();
-                                reassignClients(port);
-                                continue; // Skip further checks for this server
-                            }
-    
-                            // Scale-up: Check if the server is overloaded
-                            if (load > LOAD_THRESHOLD) {
-                                System.out.println("Load on port " + port + " exceeds threshold. Scaling up...");
-                                int newPort = spawnNewServer();
-                                redistributeClients(port, newPort);
-                                break; // Avoid excessive scaling
-                            }
-    
-                            // Scale-down: Check if the server is idle
-                            if (load == 0 && serverLoadMap.size() > 1) {
-                                long currentTime = System.currentTimeMillis();
-                                if (!idleServerTimestamps.containsKey(port)) {
-                                    idleServerTimestamps.put(port, currentTime);
-                                } else if (currentTime - idleServerTimestamps.get(port) >= SCALE_DOWN_DELAY) {
-                                    System.out.println("Server on port " + port + " has been idle for too long. Scaling down...");
-                                    killServer(port);
+                            while (iterator.hasNext()) {
+                                Map.Entry<Integer, Integer> entry = iterator.next();
+                                int port = entry.getKey();
+                                int load = entry.getValue();
+        
+                                // Heartbeat: Check if the server is alive
+                                if (!isServerAlive(port)) {
+                                    System.err.println("Server at port " + port + " is unresponsive. Removing it.");
                                     iterator.remove();
+                                    reassignClients(port);
+                                    continue; // Skip further checks for this server
+                                }
+        
+                                // Scale-up: Check if the server is overloaded
+                                if (load > LOAD_THRESHOLD) {
+                                    System.out.println("Load on port " + port + " exceeds threshold. Scaling up...");
+                                    int newPort = spawnNewServer();
+                                    redistributeClients(port, newPort);
+                                    break; // Avoid excessive scaling
+                                }
+        
+                                // Scale-down: Check if the server is idle
+                                if (load == 0 && serverLoadMap.size() > 1) {
+                                    long currentTime = System.currentTimeMillis();
+                                    if (!idleServerTimestamps.containsKey(port)) {
+                                        idleServerTimestamps.put(port, currentTime);
+                                    } else if (currentTime - idleServerTimestamps.get(port) >= SCALE_DOWN_DELAY) {
+                                        System.out.println("Server on port " + port + " has been idle for too long. Scaling down...");
+                                        killServer(port);
+                                        iterator.remove();
+                                        idleServerTimestamps.remove(port);
+                                    }
+                                } else {
                                     idleServerTimestamps.remove(port);
                                 }
-                            } else {
-                                idleServerTimestamps.remove(port);
                             }
                         }
                     }
@@ -90,31 +98,29 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
     }
     
     private void reassignClients(int failedPort) {
-        synchronized (clientMap) {
-            List<MessagingClient> clientsToReassign = new ArrayList<>();
-            for (Map.Entry<MessagingClient, Integer> entry : clientMap.entrySet()) {
-                if (entry.getValue() == failedPort) {
-                    clientsToReassign.add(entry.getKey());
-                }
+        List<MessagingClient> clientsToReassign = new ArrayList<>();
+        for (Map.Entry<MessagingClient, Integer> entry : clientMap.entrySet()) {
+            if (entry.getValue() == failedPort) {
+                clientsToReassign.add(entry.getKey());
             }
-    
-            for (MessagingClient client : clientsToReassign) {
-                try {
-                    int newPort = getLeastLoadedServer();
-                    Registry registry = LocateRegistry.getRegistry(newPort);
-                    MessagingServer newServer = (MessagingServer) registry.lookup("MessagingService");
-                    newServer.registerClient(client.toString(), client);
-                    client.connectToServer(newPort);
-    
-                    // Update mappings
-                    clientMap.put(client, newPort);
-                    newServer.incrementLoad();
-                    serverLoadMap.remove(failedPort);
-    
-                    System.out.println("Reassigned client to new server on port: " + newPort);
-                } catch (Exception e) {
-                    System.err.println("Failed to reassign client: " + e.getMessage());
-                }
+        }
+
+        for (MessagingClient client : clientsToReassign) {
+            try {
+                int newPort = getLeastLoadedServer();
+                Registry registry = LocateRegistry.getRegistry(newPort);
+                MessagingServer newServer = (MessagingServer) registry.lookup("MessagingService");
+                newServer.registerClient(client.toString(), client);
+                client.connectToServer(newPort);
+
+                // Update mappings
+                clientMap.put(client, newPort);
+                newServer.incrementLoad();
+                serverLoadMap.remove(failedPort);
+
+                System.out.println("Reassigned client to new server on port: " + newPort);
+            } catch (Exception e) {
+                System.err.println("Failed to reassign client: " + e.getMessage());
             }
         }
     }
@@ -242,62 +248,96 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
     }
 
     @Override
-    public synchronized void syncServerState(int port, Map<String, Object> state) throws RemoteException {
+    public void syncServerState(int port, Map<String, Object> state) throws RemoteException {
         System.out.println("Syncing state from server at port " + port);
 
-        // Propagate the updated state to all other servers
-        for (Map.Entry<Integer, Integer> entry : serverLoadMap.entrySet()) {
+        // Create a thread-safe copy of server load map
+        Map<Integer, Integer> localServerLoadMap;
+        synchronized (this) {
+            localServerLoadMap = new HashMap<>(serverLoadMap);
+        }
+
+        // Use a ExecutorService for non-blocking, controlled parallel synchronization
+        ExecutorService executorService = Executors.newFixedThreadPool(
+            Math.min(localServerLoadMap.size(), Runtime.getRuntime().availableProcessors())
+        );
+
+        // Collect future results to handle potential failures
+        List<Future<?>> syncFutures = new ArrayList<>();
+
+        for (Map.Entry<Integer, Integer> entry : localServerLoadMap.entrySet()) {
             int otherPort = entry.getKey();
             if (otherPort != port) {
-                try {
-                    Registry registry = LocateRegistry.getRegistry(otherPort);
-                    MessagingServer otherServer = (MessagingServer) registry.lookup("MessagingService");
+                Future<?> future = executorService.submit(() -> {
+                    try {
+                        Registry registry = LocateRegistry.getRegistry(otherPort);
+                        MessagingServer otherServer = (MessagingServer) registry.lookup("MessagingService");
 
-                    otherServer.updateState(state);
-                    System.out.println("State synchronized to server at port: " + otherPort);
-                } catch (Exception e) {
-                    System.err.println("Failed to sync state to server at port " + otherPort + ": " + e);
-                    e.printStackTrace(); // Include stack trace for debugging
-                }
+                        // Implement a timeout mechanism
+                        CompletableFuture<Void> syncTask = CompletableFuture.runAsync(() -> {
+                            try {
+                                otherServer.updateState(state);
+                                System.out.println("State synchronized to server at port: " + otherPort);
+                            } catch (RemoteException e) {
+                                throw new CompletionException(e);
+                            }
+                        }).orTimeout(5, TimeUnit.SECONDS);
+
+                        syncTask.join(); // Wait for the task to complete or timeout
+                    } catch (Exception e) {
+                        System.err.println("Failed to sync state to server at port " + otherPort + ": " + e);
+                        // Log the error but continue with other servers
+                    }
+                });
+                syncFutures.add(future);
             }
         }
+
+        // Wait for all sync tasks to complete
+        for (Future<?> future : syncFutures) {
+            try {
+                future.get(); // This will throw any exceptions that occurred during sync
+            } catch (Exception e) {
+                System.err.println("Sync task failed: " + e);
+            }
+        }
+
+        executorService.shutdown();
     }
 
     private void redistributeClients(int overloadedPort, int newPort) {
         System.out.println("Redistributing clients from port " + overloadedPort + " to port " + newPort);
-        synchronized (clientMap) {
-            List<MessagingClient> clientsToMove = new ArrayList<>();
+        List<MessagingClient> clientsToMove = new ArrayList<>();
 
-            // Find clients connected to the overloaded port
-            for (Map.Entry<MessagingClient, Integer> entry : clientMap.entrySet()) {
-                if (entry.getValue() == overloadedPort) {
-                    clientsToMove.add(entry.getKey());
-                    if (clientsToMove.size() >= LOAD_THRESHOLD / 2) {
-                        // Move half of the load to the new server
-                        break;
-                    }
+        // Find clients connected to the overloaded port
+        for (Map.Entry<MessagingClient, Integer> entry : clientMap.entrySet()) {
+            if (entry.getValue() == overloadedPort) {
+                clientsToMove.add(entry.getKey());
+                if (clientsToMove.size() >= LOAD_THRESHOLD / 2) {
+                    // Move half of the load to the new server
+                    break;
                 }
             }
+        }
 
-            for (MessagingClient client : clientsToMove) {
-                try {
-                    // Reassign the client to the new server
-                    Registry registry = LocateRegistry.getRegistry(newPort);
-                    MessagingServer newServer = (MessagingServer) registry.lookup("MessagingService");
-                    newServer.registerClient(client.toString(), client); // Update the client connection
-                    client.connectToServer(newPort);
+        for (MessagingClient client : clientsToMove) {
+            try {
+                // Reassign the client to the new server
+                Registry registry = LocateRegistry.getRegistry(newPort);
+                MessagingServer newServer = (MessagingServer) registry.lookup("MessagingService");
+                newServer.registerClient(client.toString(), client); // Update the client connection
+                client.connectToServer(newPort);
 
-                    // Update load maps
-                    clientMap.put(client, newPort);
-                    newServer.incrementLoad();
-                    // get the old server
-                    MessagingServer oldServer = (MessagingServer) LocateRegistry.getRegistry(overloadedPort).lookup("MessagingService");
-                    oldServer.decrementLoad();
-                    
-                    System.out.println("Moved client to new server on port: " + newPort);
-                } catch (Exception e) {
-                    System.err.println("Failed to move client to new server: " + e.getMessage());
-                }
+                // Update load maps
+                clientMap.put(client, newPort);
+                newServer.incrementLoad();
+                // get the old server
+                MessagingServer oldServer = (MessagingServer) LocateRegistry.getRegistry(overloadedPort).lookup("MessagingService");
+                oldServer.decrementLoad();
+                
+                System.out.println("Moved client to new server on port: " + newPort);
+            } catch (Exception e) {
+                System.err.println("Failed to move client to new server: " + e.getMessage());
             }
         }
     }
