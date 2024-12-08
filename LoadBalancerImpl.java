@@ -116,7 +116,6 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
                 // Update mappings
                 clientMap.put(client, newPort);
                 newServer.incrementLoad();
-                serverLoadMap.remove(failedPort);
 
                 System.out.println("Reassigned client to new server on port: " + newPort);
             } catch (Exception e) {
