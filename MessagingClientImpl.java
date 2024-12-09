@@ -70,7 +70,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
 
             while (true) {
                 System.out.println("\n1. Send Message\n2. Targeted Chatroom\n3. Create Post\n4. View Feed\n5. Like Post\n6. Comment on Post");
-                System.out.println("7. Follow User\n8. Unfollow User\n9. List Online Users\n10. Exit");
+                System.out.println("7. Follow User\n8. Unfollow User\n9. List Online Users\n10. Delete Post\n11. Exit");
                 System.out.print("Choose an option: ");
                 int choice = -1;
 
@@ -188,7 +188,15 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                                 System.out.println("- " + user + " (Followers: " + (followers.isEmpty() ? "None" : followers.size()) + ")");
                             }
                             break;
-                        case 10: // Exit
+                        case 10: // Delete a post
+                            client.displayFeed();
+                            System.out.print("Enter post ID to delete: ");
+                            int postIdToDelete = scanner.nextInt();
+                            scanner.nextLine(); // Consume leftover newline
+                            client.server.deletePost(postIdToDelete);
+                            System.out.println("Post deleted successfully.");
+                            break;
+                        case 11: // Exit
                             System.exit(0);
                             break;
                         default:

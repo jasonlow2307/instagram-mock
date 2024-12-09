@@ -265,7 +265,21 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         // Simply return or perform no operation to confirm server is alive
     }
 
-   public static void main(String[] args) throws RemoteException, NotBoundException {
+    @Override
+    public void deletePost(int postId) throws RemoteException {
+        synchronized (posts) { // Synchronize to handle concurrent deletions
+            boolean removed = posts.removeIf(post -> post.getId() == postId);
+            if (removed) {
+                System.out.println("Post with ID " + postId + " deleted.");
+            } else {
+                System.out.println("Post with ID " + postId + " not found.");
+            }
+        }
+        notifyStateChange(false); // Notify the load balancer of the state change if needed
+    }
+
+
+    public static void main(String[] args) throws RemoteException, NotBoundException {
         int port = parseInt(args[0]);
        System.setProperty("java.rmi.server.hostname", "localhost");
        LocateRegistry.createRegistry(port);
