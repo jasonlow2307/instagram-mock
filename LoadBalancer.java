@@ -24,4 +24,7 @@ public interface LoadBalancer extends Remote {
     void addClient(MessagingClient client, int port) throws RemoteException;
 
     void removeClient(MessagingClient client) throws RemoteException;
+
+    void logMessage(String message) throws RemoteException;
+
 }

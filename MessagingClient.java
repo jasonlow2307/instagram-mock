@@ -5,10 +5,11 @@ import java.rmi.RemoteException;
 public interface MessagingClient extends Remote {
     // Receive a general message from the server
     void receiveMessage(String message) throws RemoteException;
-    void receiveMessage(String message, boolean withUserReply) throws RemoteException;
 
     // Receive a message within a chatroom
     void receiveChatMessage(String roomName, String message) throws RemoteException;
 
     boolean connectToServer(int port) throws NotBoundException, RemoteException;
+    void notify(String notification) throws RemoteException;
+
 }

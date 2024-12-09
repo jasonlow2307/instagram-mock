@@ -16,17 +16,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
 
     @Override
     public void receiveMessage(String message) throws RemoteException {
-        receiveMessage(message, false);
-    }
-
-    @Override
-    public void receiveMessage(String message, boolean withUserReply) throws RemoteException {
         System.out.println("\n" + message);
-        if (withUserReply) {
-            System.out.print("You: ");
-        } else {
-            System.out.print("Choose an option: ");
-        }
     }
 
     @Override
@@ -42,6 +32,12 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
         System.out.println("Connected to server at port: " + port);
         return true;
     }
+
+    @Override
+    public void notify(String notification) throws RemoteException {
+        System.out.println("[Notification] " + notification);
+    }
+
 
     public static void main(String[] args) {
         try {
@@ -157,7 +153,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                         case 3:
                             System.out.print("Enter post content: ");
                             String content = scanner.nextLine();
-                            client.server.createPost("User", content);
+                            client.server.createPost(client.username, content);
                             break;
                         case 4:
                             client.displayFeed();
@@ -166,7 +162,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                             client.displayFeed();
                             System.out.print("Enter post ID to like: ");
                             int postIdToLike = scanner.nextInt();
-                            client.server.likePost("User", postIdToLike);
+                            client.server.likePost(client.username, postIdToLike);
                             break;
                         case 6:
                             client.displayFeed();
@@ -175,7 +171,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                             scanner.nextLine();
                             System.out.print("Enter comment: ");
                             String comment = scanner.nextLine();
-                            client.server.commentOnPost("User", postIdToComment, comment);
+                            client.server.commentOnPost(client.username, postIdToComment, comment);
                             break;
                         case 7: // Follow a user
                             System.out.print("Enter username to follow: ");

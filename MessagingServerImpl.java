@@ -37,7 +37,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
     @Override
     public void sendMessage(String message) throws RemoteException {
-        System.out.println("Broadcasting message: " + message);
+        forwardLogToLoadBalancer("Broadcasting message: " + message);
         for (MessagingClient client : clients) {
             client.receiveMessage(message);
         }
@@ -46,12 +46,12 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     @Override
     public void sendMessageToClient(String message, int clientIndex) throws RemoteException {
         if (clientIndex < 0 || clientIndex >= clients.size()) {
-            System.out.println("Invalid client index: " + clientIndex);
+            forwardLogToLoadBalancer("Invalid client index: " + clientIndex);
             return;
         }
         MessagingClient client = clients.get(clientIndex);
         client.receiveMessage(message);
-        System.out.println("Message sent to Client " + (clientIndex + 1));
+        forwardLogToLoadBalancer("Message sent to Client " + (clientIndex + 1));
     }
 
     @Override
@@ -63,8 +63,8 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
             followers.put(username, new HashSet<>());
         }
 
-        System.out.println("New client registered: " + username);
-        System.out.println("Total clients: " + clients.size()); // Log client count
+        forwardLogToLoadBalancer("New client registered: " + username);
+        forwardLogToLoadBalancer("Total clients: " + clients.size()); // Log client count
         notifyStateChange(false);
     }
 
@@ -80,30 +80,36 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         coordinator.updateLoad(currentLoad, currentPort);
     }
 
+    @Override
     public void followUser(String follower, String followee) throws RemoteException {
-        if (!followers.containsKey(followee)) {
-            System.out.println(followee + " does not exist.");
-            return;
-        }
+        forwardLogToLoadBalancer(follower + " is trying to follow " + followee);
 
-        if (follower.equals(followee)) {
-            System.out.println(followee + " cannot follow yourself");
+        if (!followers.containsKey(followee) && !follower.equals(followee)) {
+            forwardLogToLoadBalancer(followee + " does not exist.");
             return;
         }
 
         followers.get(followee).add(follower);
-        System.out.println(follower + " is now following " + followee);
+        forwardLogToLoadBalancer(follower + " is now following " + followee);
+
+        // Notify the followed user
+        MessagingClient followeeClient = getClientByUsername(followee);
+        if (followeeClient != null) {
+            followeeClient.notify(follower + " started following you.");
+        }
+
         notifyStateChange(false);
     }
 
+
     public void unfollowUser(String follower, String followee) throws RemoteException {
         if (!followers.containsKey(followee)) {
-            System.out.println(followee + " does not exist.");
+            forwardLogToLoadBalancer(followee + " does not exist.");
             return;
         }
 
         followers.get(followee).remove(follower);
-        System.out.println(follower + " unfollowed " + followee);
+        forwardLogToLoadBalancer(follower + " unfollowed " + followee);
         notifyStateChange(false);
     }
 
@@ -131,10 +137,10 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     public void createChatroom(String roomName) throws RemoteException {
         if (!chatrooms.containsKey(roomName)) {
             chatrooms.put(roomName, new ArrayList<>());
-            System.out.println("Chatroom created: " + roomName);
+            forwardLogToLoadBalancer("Chatroom created: " + roomName);
             notifyStateChange(false);
         } else {
-            System.out.println("Chatroom already exists: " + roomName);
+            forwardLogToLoadBalancer("Chatroom already exists: " + roomName);
         }
     }
 
@@ -147,10 +153,10 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     public void joinChatroom(String roomName, MessagingClient client) throws RemoteException {
         if (chatrooms.containsKey(roomName)) {
             chatrooms.get(roomName).add(client);
-            System.out.println("Client joined chatroom: " + roomName);
+            forwardLogToLoadBalancer("Client joined chatroom: " + roomName);
             notifyStateChange(false);
         } else {
-            System.out.println("Chatroom not found: " + roomName);
+            forwardLogToLoadBalancer("Chatroom not found: " + roomName);
         }
     }
 
@@ -161,11 +167,10 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
                 if (!client.equals(sender)) {
                     // include the username of the sender in the message
                     client.receiveMessage(onlineUsers.get(sender) + ": " + message);
-                    System.out.println("RECEIVEDMESSAGE");
                 }
             }
         } else {
-            System.out.println("Chatroom not found: " + roomName);
+            forwardLogToLoadBalancer("Chatroom not found: " + roomName);
         }
     }
 
@@ -173,7 +178,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     public void createPost(String username, String content) throws RemoteException {
         Post post = new Post(username, content);
         posts.add(post);
-        System.out.println("New post created by " + username + ": " + content);
+        forwardLogToLoadBalancer("New post created by " + username + ": " + content);
         notifyStateChange(false);
     }
 
@@ -184,29 +189,73 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
     @Override
     public void likePost(String username, int postId) throws RemoteException {
-        for (Post post : posts) {
-            if (post.getId() == postId) {
-                post.addLike();
-                System.out.println(username + " liked post " + postId);
-                notifyStateChange(false);
-                return;
+        synchronized (posts) {
+            for (Post post : posts) {
+                if (post.getId() == postId) {
+                    post.addLike();
+                    forwardLogToLoadBalancer(username + " liked post " + postId);
+
+                    // Notify the post owner
+                    String postOwner = post.getUsername();
+                    MessagingClient ownerClient = getClientByUsername(postOwner);
+                    if (ownerClient != null) {
+                        ownerClient.notify(username + " liked your post: " + post.getContent());
+                    }
+
+                    notifyStateChange(false);
+                    return;
+                }
             }
         }
-        System.out.println("Post not found: " + postId);
+        forwardLogToLoadBalancer("Post not found: " + postId);
     }
+
 
     @Override
     public void commentOnPost(String username, int postId, String comment) throws RemoteException {
-        for (Post post : posts) {
-            if (post.getId() == postId) {
-                post.addComment(username + ": " + comment);
-                System.out.println(username + " commented on post " + postId);
-                notifyStateChange(false);
-                return;
+        synchronized (posts) {
+            for (Post post : posts) {
+                if (post.getId() == postId) {
+                    post.addComment(username + ": " + comment);
+                    forwardLogToLoadBalancer(username + " commented on post " + postId);
+
+                    // Notify the post owner
+                    String postOwner = post.getUsername();
+                    MessagingClient ownerClient = getClientByUsername(postOwner);
+                    if (ownerClient != null) {
+                        ownerClient.notify(username + " commented on your post: " + post.getContent());
+                    }
+
+                    notifyStateChange(false);
+                    return;
+                }
             }
         }
-        System.out.println("Post not found: " + postId);
+        forwardLogToLoadBalancer("Post not found: " + postId);
     }
+
+    private MessagingClient getClientByUsername(String username) {
+        for (Map.Entry<MessagingClient, String> entry : onlineUsers.entrySet()) {
+            forwardLogToLoadBalancer(entry.getValue());
+            forwardLogToLoadBalancer(username);
+            if (entry.getValue().equals(username)) {
+                return entry.getKey();
+            }
+        }
+        return null; // User not found or offline
+    }
+
+    private void forwardLogToLoadBalancer(String logMessage) {
+        try {
+            Registry registry = LocateRegistry.getRegistry(1099); // Load balancer's registry
+            LoadBalancer loadBalancer = (LoadBalancer) registry.lookup("ServerCoordinator");
+            loadBalancer.logMessage(logMessage);
+        } catch (Exception e) {
+            forwardLogToLoadBalancer("Failed to send log to load balancer: " + e.getMessage());
+        }
+    }
+
+
 
     @Override
     public void notifyStateChange(boolean sequential) throws RemoteException {
@@ -224,13 +273,13 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
             if (sequential) {
                 coordinator.syncServerStateSequential(currentPort, state);
-                System.out.println("Sequential State change notification sent to coordinator.");
+                forwardLogToLoadBalancer("Sequential State change notification sent to coordinator.");
             } else {
                 coordinator.syncServerState(currentPort, state);
-                System.out.println("Concurrent State change notification sent to coordinator.");
+                forwardLogToLoadBalancer("Concurrent State change notification sent to coordinator.");
             }
         } catch (Exception e) {
-            System.err.println("Failed to notify state change: " + e);
+            forwardLogToLoadBalancer("Failed to notify state change: " + e);
             e.printStackTrace(); // Add stack trace for debugging
         }
     }
@@ -238,7 +287,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     @Override
     public void updateState(Map<String, Object> newState) throws RemoteException {
         try {
-            System.out.println("Updating state with: " + newState);
+            forwardLogToLoadBalancer("Updating state with: " + newState);
 
             // Clear current state
             clients.clear();
@@ -253,7 +302,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
             chatrooms.putAll((Map<String, List<MessagingClient>>) newState.get("chatrooms"));
             followers.putAll((Map<String, Set<String>>) newState.get("followers"));
             onlineUsers.putAll((Map<MessagingClient, String>) newState.get("onlineUsers"));
-            System.out.println("State successfully updated.");
+            forwardLogToLoadBalancer("State successfully updated.");
 
         } catch (ClassCastException e) {
             System.err.println("Failed to update state: Invalid state format - " + e.getMessage());
@@ -270,9 +319,9 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         synchronized (posts) { // Synchronize to handle concurrent deletions
             boolean removed = posts.removeIf(post -> post.getId() == postId);
             if (removed) {
-                System.out.println("Post with ID " + postId + " deleted.");
+                forwardLogToLoadBalancer("Post with ID " + postId + " deleted.");
             } else {
-                System.out.println("Post with ID " + postId + " not found.");
+                forwardLogToLoadBalancer("Post with ID " + postId + " not found.");
             }
         }
         notifyStateChange(false); // Notify the load balancer of the state change if needed
@@ -293,7 +342,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         }
 
         if (sharedPost == null) {
-            System.out.println("Post with ID " + postId + " not found.");
+            forwardLogToLoadBalancer("Post with ID " + postId + " not found.");
             return;
         }
 
@@ -307,7 +356,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         }
 
         if (recipientClient == null) {
-            System.out.println("Recipient user " + recipientUsername + " is not online.");
+            forwardLogToLoadBalancer("Recipient user " + recipientUsername + " is not online.");
             return;
         }
 
@@ -316,9 +365,9 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
                 sharedPost.getId() + ". " + sharedPost.getUsername() + ": " + sharedPost.getContent() + "\n" +
                 "   Likes: " + sharedPost.getLikes() + "\n" +
                 "   Comments: " + sharedPost.getComments();
-        recipientClient.receiveMessage(message, false);
+        recipientClient.notify(message);
 
-        System.out.println(sharerUsername + " shared post ID " + postId + " with " + recipientUsername);
+        forwardLogToLoadBalancer(sharerUsername + " shared post ID " + postId + " with " + recipientUsername);
     }
 
 

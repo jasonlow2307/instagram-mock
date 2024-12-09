@@ -399,6 +399,12 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
         }
     }
 
+    @Override
+    public void logMessage(String message) throws RemoteException {
+        System.out.println("[Server Log] " + message);
+    }
+
+
     public static void main(String[] args) {
         try {
             // Create and export the server coordinator
