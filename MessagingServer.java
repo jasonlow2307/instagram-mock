@@ -1,5 +1,6 @@
 import java.rmi.Remote;
 import java.rmi.RemoteException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,4 +29,5 @@ public interface MessagingServer extends Remote {
     void deletePost(int postId) throws RemoteException;
     void sharePost(int postId, String sharerUsername, String recipientUsername) throws RemoteException;
     void createStory(String username, String content, int durationInSeconds) throws RemoteException;
+    List<Post> searchPosts(String keyword, String username, Instant startTime, Instant endTime) throws RemoteException;
 }

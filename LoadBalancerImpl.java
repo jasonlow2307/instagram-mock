@@ -404,7 +404,6 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
         System.out.println("[Server Log] " + message);
     }
 
-
     public static void main(String[] args) {
         try {
             // Create and export the server coordinator

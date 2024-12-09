@@ -5,6 +5,7 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -412,6 +413,24 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         }
         forwardLogToLoadBalancer("New story created by " + username + ": " + content);
         notifyStateChange(false);
+    }
+
+    @Override
+    public List<Post> searchPosts(String keyword, String username, Instant startTime, Instant endTime) throws RemoteException {
+        List<Post> results = new ArrayList<>();
+        synchronized (posts) {
+            for (Post post : posts) {
+                boolean matchesKeyword = (keyword == null || post.getContent().toLowerCase().contains(keyword.toLowerCase()));
+                boolean matchesUsername = (username == null || post.getUsername().equalsIgnoreCase(username));
+                boolean matchesTimeRange = (startTime == null || !post.getTimestamp().isBefore(startTime)) &&
+                        (endTime == null || !post.getTimestamp().isAfter(endTime));
+
+                if (matchesKeyword && matchesUsername && matchesTimeRange) {
+                    results.add(post);
+                }
+            }
+        }
+        return results;
     }
 
 

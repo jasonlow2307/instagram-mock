@@ -1,4 +1,5 @@
 import java.io.Serializable;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,6 +10,7 @@ public class Post implements Serializable {
     private final String content;
     private int likes;
     private final List<String> comments;
+    private final Instant timestamp;
 
     public Post(String username, String content) {
         this.id = nextId++;
@@ -16,6 +18,7 @@ public class Post implements Serializable {
         this.content = content;
         this.likes = 0;
         this.comments = new ArrayList<>();
+        this.timestamp = Instant.now();
     }
 
     public int getId() {
@@ -36,6 +39,10 @@ public class Post implements Serializable {
 
     public List<String> getComments() {
         return comments;
+    }
+
+    public Instant getTimestamp() {
+        return timestamp;
     }
 
     public void addLike() {

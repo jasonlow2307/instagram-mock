@@ -3,6 +3,7 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.time.Instant;
 import java.util.*;
 
 public class MessagingClientImpl extends UnicastRemoteObject implements MessagingClient {
@@ -75,7 +76,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
 
             while (true) {
                 System.out.println("\n1. Send Message\n2. Targeted Chatroom\n3. Create Content\n4. View Feed\n5. Like Post\n6. Comment on Post");
-                System.out.println("7. Follow User\n8. Unfollow User\n9. List Online Users\n10. Delete Post\n11. Share Post\n12. Exit");
+                System.out.println("7. Follow User\n8. Unfollow User\n9. List Online Users\n10. Delete Post\n11. Share Post\n12. Search for Post\n13. Exit");
                 System.out.print("Choose an option: ");
                 int choice = -1;
 
@@ -273,7 +274,39 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                                 System.out.println("Invalid user selection.");
                             }
                             break;
-                        case 12: // Exit
+                        case 12: // Search for posts
+                            System.out.println("\nSearch for Posts:");
+                            System.out.print("Enter keyword (leave blank for no filter): ");
+                            String keyword = scanner.nextLine().trim();
+
+                            System.out.print("Enter username (leave blank for no filter): ");
+                            String searchUsername = scanner.nextLine().trim();
+                            if (searchUsername.isEmpty()) searchUsername = null;
+
+                            System.out.println("Enter time range (leave blank for no filter):");
+                            System.out.print("Start time (YYYY-MM-DD HH:mm:ss): ");
+                            String startInput = scanner.nextLine().trim();
+                            Instant startTime = startInput.isEmpty() ? null : Instant.parse(startInput + ":00Z");
+
+                            System.out.print("End time (YYYY-MM-DD HH:mm:ss): ");
+                            String endInput = scanner.nextLine().trim();
+                            Instant endTime = endInput.isEmpty() ? null : Instant.parse(endInput + ":00Z");
+
+                            List<Post> searchResults = client.server.searchPosts(
+                                    keyword.isEmpty() ? null : keyword,
+                                    searchUsername,
+                                    startTime,
+                                    endTime
+                            );
+
+                            System.out.println("\nSearch Results:");
+                            for (Post post : searchResults) {
+                                System.out.println(post.getId() + ". " + post.getUsername() + ": " + post.getContent());
+                                System.out.println("   Likes: " + post.getLikes());
+                                System.out.println("   Comments: " + post.getComments());
+                            }
+                            break;
+                        case 13: // Exit
                             System.exit(0);
                             break;
                         default:
