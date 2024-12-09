@@ -26,5 +26,5 @@ public interface MessagingServer extends Remote {
     void incrementLoad() throws RemoteException;
     void notifyStateChange(boolean sequential) throws RemoteException;
     void deletePost(int postId) throws RemoteException;
-
+    void sharePost(int postId, String sharerUsername, String recipientUsername) throws RemoteException;
 }

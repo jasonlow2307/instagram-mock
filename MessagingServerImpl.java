@@ -278,6 +278,50 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         notifyStateChange(false); // Notify the load balancer of the state change if needed
     }
 
+    @Override
+    public void sharePost(int postId, String sharerUsername, String recipientUsername) throws RemoteException {
+        Post sharedPost = null;
+
+        // Find the post to share
+        synchronized (posts) {
+            for (Post post : posts) {
+                if (post.getId() == postId) {
+                    sharedPost = post;
+                    break;
+                }
+            }
+        }
+
+        if (sharedPost == null) {
+            System.out.println("Post with ID " + postId + " not found.");
+            return;
+        }
+
+        // Find the recipient client
+        MessagingClient recipientClient = null;
+        for (Map.Entry<MessagingClient, String> entry : onlineUsers.entrySet()) {
+            if (entry.getValue().equals(recipientUsername)) {
+                recipientClient = entry.getKey();
+                break;
+            }
+        }
+
+        if (recipientClient == null) {
+            System.out.println("Recipient user " + recipientUsername + " is not online.");
+            return;
+        }
+
+        // Notify the recipient
+        String message = sharerUsername + " shared a post with you:\n" +
+                sharedPost.getId() + ". " + sharedPost.getUsername() + ": " + sharedPost.getContent() + "\n" +
+                "   Likes: " + sharedPost.getLikes() + "\n" +
+                "   Comments: " + sharedPost.getComments();
+        recipientClient.receiveMessage(message, false);
+
+        System.out.println(sharerUsername + " shared post ID " + postId + " with " + recipientUsername);
+    }
+
+
 
     public static void main(String[] args) throws RemoteException, NotBoundException {
         int port = parseInt(args[0]);

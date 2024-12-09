@@ -16,8 +16,17 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
 
     @Override
     public void receiveMessage(String message) throws RemoteException {
+        receiveMessage(message, false);
+    }
+
+    @Override
+    public void receiveMessage(String message, boolean withUserReply) throws RemoteException {
         System.out.println("\n" + message);
-        System.out.print("You: ");
+        if (withUserReply) {
+            System.out.print("You: ");
+        } else {
+            System.out.print("Choose an option: ");
+        }
     }
 
     @Override
@@ -70,7 +79,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
 
             while (true) {
                 System.out.println("\n1. Send Message\n2. Targeted Chatroom\n3. Create Post\n4. View Feed\n5. Like Post\n6. Comment on Post");
-                System.out.println("7. Follow User\n8. Unfollow User\n9. List Online Users\n10. Delete Post\n11. Exit");
+                System.out.println("7. Follow User\n8. Unfollow User\n9. List Online Users\n10. Delete Post\n11. Share Post\n12. Exit");
                 System.out.print("Choose an option: ");
                 int choice = -1;
 
@@ -196,7 +205,40 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                             client.server.deletePost(postIdToDelete);
                             System.out.println("Post deleted successfully.");
                             break;
-                        case 11: // Exit
+                        case 11: // Share a post
+                            // Display the feed
+                            client.displayFeed();
+                            System.out.print("Enter post ID to share: ");
+                            int postIdToShare = scanner.nextInt();
+                            scanner.nextLine(); // Consume leftover newline
+
+                            // Display online users
+                            onlineUsersWithFollowers = client.server.listOnlineUsers();
+                            if (onlineUsersWithFollowers.isEmpty()) {
+                                System.out.println("No users are currently online to share the post.");
+                                break;
+                            }
+
+                            System.out.println("Online Users:");
+                            List<String> onlineUsernames = new ArrayList<>(onlineUsersWithFollowers.keySet());
+                            for (int i = 0; i < onlineUsernames.size(); i++) {
+                                System.out.println((i + 1) + ". " + onlineUsernames.get(i));
+                            }
+
+                            // Select recipient
+                            System.out.print("Choose a user to share the post with: ");
+                            int recipientIndex = scanner.nextInt() - 1;
+                            scanner.nextLine(); // Consume leftover newline
+
+                            if (recipientIndex >= 0 && recipientIndex < onlineUsernames.size()) {
+                                String recipient = onlineUsernames.get(recipientIndex);
+                                client.server.sharePost(postIdToShare, client.username, recipient);
+                                System.out.println("Post shared successfully with " + recipient + ".");
+                            } else {
+                                System.out.println("Invalid user selection.");
+                            }
+                            break;
+                        case 12: // Exit
                             System.exit(0);
                             break;
                         default:
