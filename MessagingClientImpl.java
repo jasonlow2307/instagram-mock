@@ -171,6 +171,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                         case 7: // Follow a user
                             System.out.print("Enter username to follow: ");
                             String followee = scanner.nextLine();
+                            System.out.println(client.username + "FOLLOW" + followee);
                             client.server.followUser(client.username, followee);
                             break;
                         case 8: // Unfollow a user
@@ -184,7 +185,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                             for (Map.Entry<String, Set<String>> entry : onlineUsersWithFollowers.entrySet()) {
                                 String user = entry.getKey();
                                 Set<String> followers = entry.getValue();
-                                System.out.println("- " + user + " (Followers: " + (followers.isEmpty() ? "None" : String.join(", ", followers)) + ")");
+                                System.out.println("- " + user + " (Followers: " + (followers.isEmpty() ? "None" : followers.size()) + ")");
                             }
                             break;
                         case 10: // Exit

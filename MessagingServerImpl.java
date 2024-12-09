@@ -86,6 +86,11 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
             return;
         }
 
+        if (follower.equals(followee)) {
+            System.out.println(followee + " cannot follow yourself");
+            return;
+        }
+
         followers.get(followee).add(follower);
         System.out.println(follower + " is now following " + followee);
         notifyStateChange(false);
