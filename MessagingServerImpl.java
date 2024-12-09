@@ -6,6 +6,9 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static java.lang.Integer.parseInt;
 
@@ -21,6 +24,10 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
     private final int currentPort;
 
+    private final List<Story> stories = new ArrayList<>();
+
+    private final ScheduledExecutorService storyExpiryExecutor = Executors.newScheduledThreadPool(1);
+
     protected MessagingServerImpl(int currentPort) throws RemoteException, NotBoundException {
         super();
         clients = new ArrayList<>();
@@ -33,6 +40,13 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         // Pull load balancer into server for updating load
         Registry registry = LocateRegistry.getRegistry(1099);
         this.coordinator = (LoadBalancer) registry.lookup("ServerCoordinator");
+
+        // Start story expiry checker
+        storyExpiryExecutor.scheduleAtFixedRate(() -> {
+            synchronized (stories) {
+                stories.removeIf(Story::isExpired);
+            }
+        }, 1, 1, TimeUnit.MINUTES);
     }
 
     @Override
@@ -184,9 +198,29 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
     @Override
     public List<Post> getFeed() throws RemoteException {
-        return posts;
-    }
+        List<Post> combinedFeed = new ArrayList<>();
 
+        // Add regular posts
+        synchronized (posts) {
+            combinedFeed.addAll(posts);
+        }
+
+        // Add non-expired stories
+        synchronized (stories) {
+            Iterator<Story> iterator = stories.iterator();
+            while (iterator.hasNext()) {
+                Story story = iterator.next();
+                if (story.isExpired()) {
+                    iterator.remove(); // Remove expired stories
+                } else {
+                    Post pseudoPost = new Post(story.getUsername(), "[Story] " + story.getContent());
+                    combinedFeed.add(pseudoPost);
+                }
+            }
+        }
+
+        return combinedFeed;
+    }
     @Override
     public void likePost(String username, int postId) throws RemoteException {
         synchronized (posts) {
@@ -368,6 +402,16 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         recipientClient.notify(message);
 
         forwardLogToLoadBalancer(sharerUsername + " shared post ID " + postId + " with " + recipientUsername);
+    }
+
+    @Override
+    public void createStory(String username, String content, int durationInSeconds) throws RemoteException {
+        Story story = new Story(username, content, durationInSeconds);
+        synchronized (stories) {
+            stories.add(story);
+        }
+        forwardLogToLoadBalancer("New story created by " + username + ": " + content);
+        notifyStateChange(false);
     }
 
 

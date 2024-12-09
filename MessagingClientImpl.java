@@ -74,7 +74,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
             client.server.registerClient(client.username, client); // Pass username during registration
 
             while (true) {
-                System.out.println("\n1. Send Message\n2. Targeted Chatroom\n3. Create Post\n4. View Feed\n5. Like Post\n6. Comment on Post");
+                System.out.println("\n1. Send Message\n2. Targeted Chatroom\n3. Create Content\n4. View Feed\n5. Like Post\n6. Comment on Post");
                 System.out.println("7. Follow User\n8. Unfollow User\n9. List Online Users\n10. Delete Post\n11. Share Post\n12. Exit");
                 System.out.print("Choose an option: ");
                 int choice = -1;
@@ -150,10 +150,49 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                                 }
                             }
                             break;
-                        case 3:
-                            System.out.print("Enter post content: ");
-                            String content = scanner.nextLine();
-                            client.server.createPost(client.username, content);
+                        case 3: // Create Content
+                            System.out.println("\n1. Regular Post\n2. Story");
+                            System.out.print("Choose an option: ");
+                            int contentChoice = scanner.nextInt();
+                            scanner.nextLine(); // Consume leftover newline
+
+                            if (contentChoice == 1) {
+                                System.out.print("Enter post content: ");
+                                String postContent = scanner.nextLine();
+                                client.server.createPost(client.username, postContent);
+                            } else if (contentChoice == 2) {
+                                System.out.print("Enter story content: ");
+                                String storyContent = scanner.nextLine();
+
+                                // List time periods for story visibility
+                                System.out.println("\nChoose story visibility duration:");
+                                System.out.println("1. 30 seconds");
+                                System.out.println("2. 1 minute");
+                                System.out.println("3. 5 minutes");
+                                System.out.println("4. 1 hour");
+                                System.out.println("5. 8 hours");
+                                System.out.println("6. 24 hours");
+                                System.out.print("Choose an option: ");
+                                int timeChoice = scanner.nextInt();
+                                scanner.nextLine(); // Consume leftover newline
+
+                                int durationInSeconds;
+                                switch (timeChoice) {
+                                    case 1: durationInSeconds = 30; break;
+                                    case 2: durationInSeconds = 60; break;
+                                    case 3: durationInSeconds = 300; break;
+                                    case 4: durationInSeconds = 3600; break;
+                                    case 5: durationInSeconds = 28800; break;
+                                    case 6: durationInSeconds = 86400; break;
+                                    default:
+                                        System.out.println("Invalid choice. Defaulting to 24 hours.");
+                                        durationInSeconds = 86400;
+                                }
+
+                                client.server.createStory(client.username, storyContent, durationInSeconds);
+                            } else {
+                                System.out.println("Invalid choice.");
+                            }
                             break;
                         case 4:
                             client.displayFeed();

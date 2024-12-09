@@ -27,4 +27,5 @@ public interface MessagingServer extends Remote {
     void notifyStateChange(boolean sequential) throws RemoteException;
     void deletePost(int postId) throws RemoteException;
     void sharePost(int postId, String sharerUsername, String recipientUsername) throws RemoteException;
+    void createStory(String username, String content, int durationInSeconds) throws RemoteException;
 }
