@@ -8,42 +8,49 @@ import java.rmi.server.UnicastRemoteObject;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalancer {
-    private final Map<Integer, Integer> serverLoadMap;
-    // store all clients and their port
-    private final Map<MessagingClient, Integer> clientMap;
-    private final Map<Integer, Long> idleServerTimestamps = new HashMap<>();
+    private final ConcurrentHashMap<Integer, Integer> serverLoadMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, Long> idleServerTimestamps = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<MessagingClient, Integer> clientMap = new ConcurrentHashMap<>();
     private static final int SCALE_DOWN_DELAY = 10000;
+
+    private final ReentrantLock serverLoadMapLock = new ReentrantLock();
+    private final ReentrantLock clientMapLock = new ReentrantLock();
 
     // Constructor
     protected LoadBalancerImpl() throws RemoteException {
         super();
-        serverLoadMap = new HashMap<>();
-        clientMap = new HashMap<>();
     }
 
     public void monitorAndManage() {
         new Thread(() -> {
             while (true) {
                 try {
-                    Thread.sleep(5000); // Monitor interval
-
-                    // iterate through all servers and print their loads
-                    System.out.println("Server loads: " + serverLoadMap);
-                    synchronized (serverLoadMap) {
-                        synchronized (clientMap) {
-                            Iterator<Map.Entry<Integer, Integer>> iterator = serverLoadMap.entrySet().iterator();
+                    // Sleep interval between monitoring cycles
+                    Thread.sleep(5000); // 5 seconds monitoring interval
     
+                    // Attempt to acquire locks with timeout
+                    if (serverLoadMapLock.tryLock(1, TimeUnit.SECONDS) && 
+                        clientMapLock.tryLock(1, TimeUnit.SECONDS)) {
+                        try {
+                            // Print current server loads
+                            System.out.println("Server loads: " + serverLoadMap);
+    
+                            // Use an iterator to safely modify the map during iteration
+                            Iterator<Map.Entry<Integer, Integer>> iterator = serverLoadMap.entrySet().iterator();
+        
                             while (iterator.hasNext()) {
                                 Map.Entry<Integer, Integer> entry = iterator.next();
                                 int port = entry.getKey();
                                 int load = entry.getValue();
-        
+            
                                 // Heartbeat: Check if the server is alive
                                 if (!isServerAlive(port)) {
                                     System.err.println("Server at port " + port + " is unresponsive. Removing it.");
@@ -51,7 +58,7 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
                                     reassignClients(port);
                                     continue; // Skip further checks for this server
                                 }
-        
+            
                                 // Scale-up: Check if the server is overloaded
                                 if (load > LOAD_THRESHOLD) {
                                     System.out.println("Load on port " + port + " exceeds threshold. Scaling up...");
@@ -59,27 +66,45 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
                                     redistributeClients(port, newPort);
                                     break; // Avoid excessive scaling
                                 }
-        
+            
                                 // Scale-down: Check if the server is idle
                                 if (load == 0 && serverLoadMap.size() > 1) {
                                     long currentTime = System.currentTimeMillis();
-                                    if (!idleServerTimestamps.containsKey(port)) {
-                                        idleServerTimestamps.put(port, currentTime);
-                                    } else if (currentTime - idleServerTimestamps.get(port) >= SCALE_DOWN_DELAY) {
-                                        System.out.println("Server on port " + port + " has been idle for too long. Scaling down...");
-                                        killServer(port);
-                                        iterator.remove();
-                                        idleServerTimestamps.remove(port);
-                                    }
+                                    
+                                    // Track idle server timestamp
+                                    idleServerTimestamps.compute(port, (k, existingTimestamp) -> {
+                                        if (existingTimestamp == null) {
+                                            return currentTime;
+                                        }
+                                        
+                                        // Check if idle time exceeds threshold
+                                        if (currentTime - existingTimestamp >= SCALE_DOWN_DELAY) {
+                                            System.out.println("Server on port " + port + " has been idle for too long. Scaling down...");
+                                            killServer(port);
+                                            iterator.remove();
+                                            return null; // Remove timestamp
+                                        }
+                                        
+                                        return existingTimestamp;
+                                    });
                                 } else {
+                                    // Remove idle timestamp if server becomes active
                                     idleServerTimestamps.remove(port);
                                 }
                             }
+                        } finally {
+                            // Always release locks in the correct order
+                            clientMapLock.unlock();
+                            serverLoadMapLock.unlock();
                         }
+                    } else {
+                        // Log lock acquisition failure
+                        System.err.println("Could not acquire locks for monitoring");
                     }
                 } catch (InterruptedException e) {
                     System.err.println("Monitor thread interrupted: " + e.getMessage());
                     Thread.currentThread().interrupt();
+                    break;
                 }
             }
         }).start();
@@ -110,7 +135,6 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
                 int newPort = getLeastLoadedServer();
                 Registry registry = LocateRegistry.getRegistry(newPort);
                 MessagingServer newServer = (MessagingServer) registry.lookup("MessagingService");
-                newServer.registerClient(client.toString(), client);
                 client.connectToServer(newPort);
 
                 // Update mappings
@@ -189,7 +213,7 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
 
             
             MessagingServer server = (MessagingServer) LocateRegistry.getRegistry(oldPort).lookup("MessagingService");
-            server.notifyStateChange();
+            server.notifyStateChange(true);
             System.out.println("Notified server at port " + oldPort + " to sync state to new server on port " + newPort);
 
             return newPort;
@@ -248,60 +272,95 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
 
     @Override
     public void syncServerState(int port, Map<String, Object> state) throws RemoteException {
-        System.out.println("Syncing state from server at port " + port);
+        try {
+            // Attempt to acquire server load map lock with timeout
+            if (serverLoadMapLock.tryLock(5, TimeUnit.SECONDS)) {
+                try {
+                    // Create a thread-safe copy of server load map
+                    Map<Integer, Integer> localServerLoadMap = new HashMap<>(serverLoadMap);
 
-        // Create a thread-safe copy of server load map
-        Map<Integer, Integer> localServerLoadMap;
-        synchronized (this) {
-            localServerLoadMap = new HashMap<>(serverLoadMap);
+                    // Use ExecutorService for parallel, controlled synchronization
+                    ExecutorService executorService = Executors.newFixedThreadPool(
+                        Math.min(localServerLoadMap.size(), Runtime.getRuntime().availableProcessors())
+                    );
+
+                    // Collect futures to handle potential sync failures
+                    List<Future<?>> syncFutures = new ArrayList<>();
+
+                    for (Map.Entry<Integer, Integer> entry : localServerLoadMap.entrySet()) {
+                        int otherPort = entry.getKey();
+                        if (otherPort != port) {
+                            Future<?> future = executorService.submit(() -> {
+                                try {
+                                    // Locate RMI registry for the server
+                                    Registry registry = LocateRegistry.getRegistry(otherPort);
+                                    MessagingServer otherServer = (MessagingServer) registry.lookup("MessagingService");
+
+                                    // Implement a timeout mechanism for state update
+                                    CompletableFuture<Void> syncTask = CompletableFuture.runAsync(() -> {
+                                        try {
+                                            otherServer.updateState(state);
+                                            System.out.println("[Concurrent] State synchronized to server at port: " + otherPort);
+                                        } catch (RemoteException e) {
+                                            throw new CompletionException(e);
+                                        }
+                                    }).orTimeout(5, TimeUnit.SECONDS);
+
+                                    // Wait for the task to complete or timeout
+                                    syncTask.join();
+                                } catch (Exception e) {
+                                    System.err.println("Failed to sync state to server at port " + otherPort + ": " + e);
+                                    // Log the error but continue with other servers
+                                }
+                            });
+                            syncFutures.add(future);
+                        }
+                    }
+
+                    // Wait for all sync tasks to complete
+                    for (Future<?> future : syncFutures) {
+                        try {
+                            future.get(5, TimeUnit.SECONDS);
+                        } catch (Exception e) {
+                            System.err.println("Sync task failed: " + e);
+                        }
+                    }
+
+                    // Shutdown the executor service
+                    executorService.shutdown();
+                } finally {
+                    // Always release the lock
+                    serverLoadMapLock.unlock();
+                }
+            } else {
+                System.err.println("Could not acquire lock for state synchronization");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RemoteException("Synchronization interrupted", e);
         }
+    }
 
-        // Use a ExecutorService for non-blocking, controlled parallel synchronization
-        ExecutorService executorService = Executors.newFixedThreadPool(
-            Math.min(localServerLoadMap.size(), Runtime.getRuntime().availableProcessors())
-        );
-
-        // Collect future results to handle potential failures
-        List<Future<?>> syncFutures = new ArrayList<>();
-
-        for (Map.Entry<Integer, Integer> entry : localServerLoadMap.entrySet()) {
+    @Override
+    public void syncServerStateSequential (int port, Map<String, Object> state) throws RemoteException {
+        // Iterate through serverLoadMap sequentially
+        for (Map.Entry<Integer, Integer> entry : serverLoadMap.entrySet()) {
             int otherPort = entry.getKey();
             if (otherPort != port) {
-                Future<?> future = executorService.submit(() -> {
-                    try {
-                        Registry registry = LocateRegistry.getRegistry(otherPort);
-                        MessagingServer otherServer = (MessagingServer) registry.lookup("MessagingService");
-
-                        // Implement a timeout mechanism
-                        CompletableFuture<Void> syncTask = CompletableFuture.runAsync(() -> {
-                            try {
-                                otherServer.updateState(state);
-                                System.out.println("State synchronized to server at port: " + otherPort);
-                            } catch (RemoteException e) {
-                                throw new CompletionException(e);
-                            }
-                        }).orTimeout(5, TimeUnit.SECONDS);
-
-                        syncTask.join(); // Wait for the task to complete or timeout
-                    } catch (Exception e) {
-                        System.err.println("Failed to sync state to server at port " + otherPort + ": " + e);
-                        // Log the error but continue with other servers
-                    }
-                });
-                syncFutures.add(future);
+                try {
+                    // Locate RMI registry for the target server
+                    Registry registry = LocateRegistry.getRegistry(otherPort);
+                    MessagingServer otherServer = (MessagingServer) registry.lookup("MessagingService");
+    
+                    // Synchronize state with the target server
+                    otherServer.updateState(state);
+                    System.out.println("[Sequential] State synchronized to server at port: " + otherPort);
+                } catch (Exception e) {
+                    System.err.println("Failed to sync state to server at port " + otherPort + ": " + e);
+                    e.printStackTrace(); // Include stack trace for debugging
+                }
             }
         }
-
-        // Wait for all sync tasks to complete
-        for (Future<?> future : syncFutures) {
-            try {
-                future.get(); // This will throw any exceptions that occurred during sync
-            } catch (Exception e) {
-                System.err.println("Sync task failed: " + e);
-            }
-        }
-
-        executorService.shutdown();
     }
 
     private void redistributeClients(int overloadedPort, int newPort) {
@@ -324,7 +383,6 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
                 // Reassign the client to the new server
                 Registry registry = LocateRegistry.getRegistry(newPort);
                 MessagingServer newServer = (MessagingServer) registry.lookup("MessagingService");
-                newServer.registerClient(client.toString(), client); // Update the client connection
                 client.connectToServer(newPort);
 
                 // Update load maps

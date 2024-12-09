@@ -24,5 +24,5 @@ public interface MessagingServer extends Remote {
     void ping() throws RemoteException;
     void decrementLoad() throws RemoteException;
     void incrementLoad() throws RemoteException;
-    void notifyStateChange() throws RemoteException;
+    void notifyStateChange(boolean sequential) throws RemoteException;
 }

@@ -65,17 +65,17 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
         System.out.println("New client registered: " + username);
         System.out.println("Total clients: " + clients.size()); // Log client count
-        notifyStateChange();
+        notifyStateChange(false);
     }
 
     @Override
-    public synchronized void decrementLoad() throws RemoteException {
+    public void decrementLoad() throws RemoteException {
         currentLoad--;
         coordinator.updateLoad(currentLoad, currentPort);
     }
 
     @Override
-    public synchronized void incrementLoad() throws RemoteException {
+    public void incrementLoad() throws RemoteException {
         currentLoad++;
         coordinator.updateLoad(currentLoad, currentPort);
     }
@@ -88,7 +88,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
         followers.get(followee).add(follower);
         System.out.println(follower + " is now following " + followee);
-        notifyStateChange();
+        notifyStateChange(false);
     }
 
     public void unfollowUser(String follower, String followee) throws RemoteException {
@@ -99,7 +99,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
         followers.get(followee).remove(follower);
         System.out.println(follower + " unfollowed " + followee);
-        notifyStateChange();
+        notifyStateChange(false);
     }
 
     @Override
@@ -127,7 +127,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         if (!chatrooms.containsKey(roomName)) {
             chatrooms.put(roomName, new ArrayList<>());
             System.out.println("Chatroom created: " + roomName);
-            notifyStateChange();
+            notifyStateChange(false);
         } else {
             System.out.println("Chatroom already exists: " + roomName);
         }
@@ -143,7 +143,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         if (chatrooms.containsKey(roomName)) {
             chatrooms.get(roomName).add(client);
             System.out.println("Client joined chatroom: " + roomName);
-            notifyStateChange();
+            notifyStateChange(false);
         } else {
             System.out.println("Chatroom not found: " + roomName);
         }
@@ -169,7 +169,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         Post post = new Post(username, content);
         posts.add(post);
         System.out.println("New post created by " + username + ": " + content);
-        notifyStateChange();
+        notifyStateChange(false);
     }
 
     @Override
@@ -183,7 +183,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
             if (post.getId() == postId) {
                 post.addLike();
                 System.out.println(username + " liked post " + postId);
-                notifyStateChange();
+                notifyStateChange(false);
                 return;
             }
         }
@@ -196,7 +196,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
             if (post.getId() == postId) {
                 post.addComment(username + ": " + comment);
                 System.out.println(username + " commented on post " + postId);
-                notifyStateChange();
+                notifyStateChange(false);
                 return;
             }
         }
@@ -204,7 +204,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     }
 
     @Override
-    public void notifyStateChange() {
+    public void notifyStateChange(boolean sequential) throws RemoteException {
         try {
             Registry registry = LocateRegistry.getRegistry(1099);
             LoadBalancer coordinator = (LoadBalancer) registry.lookup("ServerCoordinator");
@@ -217,8 +217,13 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
             state.put("followers", new HashMap<>(followers));
             state.put("onlineUsers", new HashMap<>(onlineUsers));
 
-            coordinator.syncServerState(currentPort, state);
-            System.out.println("State change notified to coordinator.");
+            if (sequential) {
+                coordinator.syncServerStateSequential(currentPort, state);
+                System.out.println("Sequential State change notification sent to coordinator.");
+            } else {
+                coordinator.syncServerState(currentPort, state);
+                System.out.println("Concurrent State change notification sent to coordinator.");
+            }
         } catch (Exception e) {
             System.err.println("Failed to notify state change: " + e);
             e.printStackTrace(); // Add stack trace for debugging
@@ -226,7 +231,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     }
 
     @Override
-    public synchronized void updateState(Map<String, Object> newState) throws RemoteException {
+    public void updateState(Map<String, Object> newState) throws RemoteException {
         try {
             System.out.println("Updating state with: " + newState);
 
