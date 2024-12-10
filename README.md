@@ -55,6 +55,25 @@ This project demonstrates a scalable, distributed system using a load balancer t
 
 ## **Setup and Execution**
 
+## Database Setup
+
+1. Ensure PostgreSQL is installed and running.
+2. Create the database:
+   ```bash
+   createdb messaging_app
+   ```
+3. Import the schema:
+   ```bash
+   psql -U your_db_username -d messaging_app -f db/schema.sql
+   ```
+4. (Optional) Import seed data:
+   ```bash
+   psql -U your_db_username -d messaging_app -f db/seed_data.sql
+   ```
+5. Update the database credentials in the application (`DatabaseConnection` class) if necessary.
+
+You’re ready to run the application!
+
 ### **Prerequisites**
 1. **Java Development Kit (JDK)**: Version 8 or later.
 2. **RMI Registry**:

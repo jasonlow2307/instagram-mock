@@ -56,27 +56,77 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                 }
             }));
 
+            Scanner scanner = new Scanner(System.in);
+            boolean isLoggedIn = false;
 
-            int leastLoadedPort = coordinator.getLeastLoadedServer();
-            System.out.println("Least-loaded server: " + leastLoadedPort);
+            while (!isLoggedIn) {
+                System.out.println("\n0. Register");
+                System.out.println("1. Login");
+                System.out.print("Choose an option: ");
+                int authChoice = scanner.nextInt();
+                scanner.nextLine(); // Consume leftover newline
 
-            if (!client.connectToServer(leastLoadedPort)) {
-                System.exit(1); // Exit if unable to connect to any server
+                switch (authChoice) {
+                    case 0: // Register
+                        System.out.print("Enter username: ");
+                        String newUsername = scanner.nextLine();
+                        System.out.print("Enter password: ");
+                        String newPassword = scanner.nextLine();
+
+                        if (AuthService.registerUser(newUsername, newPassword)) {
+                            System.out.println("Registration successful.");
+                        } else {
+                            System.out.println("Registration failed. Username might already exist.");
+                        }
+                        break;
+
+                    case 1: // Login
+                        System.out.print("Enter username: ");
+                        String loginUsername = scanner.nextLine();
+                        System.out.print("Enter password: ");
+                        String loginPassword = scanner.nextLine();
+
+                        if (AuthService.loginUser(loginUsername, loginPassword)) {
+                            System.out.println("Login successful.");
+                            client.username = loginUsername;
+                            isLoggedIn = true;
+
+                            // Connect to the server
+                            int leastLoadedPort = coordinator.getLeastLoadedServer();
+                            System.out.println("Least-loaded server: " + leastLoadedPort);
+
+                            if (!client.connectToServer(leastLoadedPort)) {
+                                System.exit(1); // Exit if unable to connect to any server
+                            }
+
+                            coordinator.addClient(client, leastLoadedPort);
+                            client.server.incrementLoad();
+                            client.server.registerClient(client.username, client);
+                        } else {
+                            System.out.println("Invalid username or password.");
+                        }
+                        break;
+
+                    default:
+                        System.out.println("Invalid choice. Please try again.");
+                        break;
+                }
             }
 
-            coordinator.addClient(client, leastLoadedPort);
-            client.server.incrementLoad();
-
-            Scanner scanner = new Scanner(System.in);
-
-            // Prompt for username
-            System.out.print("Enter your username: ");
-            client.username = scanner.nextLine();
-            client.server.registerClient(client.username, client); // Pass username during registration
-
             while (true) {
-                System.out.println("\n1. Send Message\n2. Targeted Chatroom\n3. Create Content\n4. View Feed\n5. Like Post\n6. Comment on Post");
-                System.out.println("7. Follow User\n8. Unfollow User\n9. List Online Users\n10. Delete Post\n11. Share Post\n12. Search for Post\n13. Exit");
+                System.out.println("\n1. Send Message");
+                System.out.println("2. Targeted Chatroom");
+                System.out.println("3. Create Content");
+                System.out.println("4. View Feed");
+                System.out.println("5. Like Post");
+                System.out.println("6. Comment on Post");
+                System.out.println("7. Follow User");
+                System.out.println("8. Unfollow User");
+                System.out.println("9. List Online Users");
+                System.out.println("10. Delete Post");
+                System.out.println("11. Share Post");
+                System.out.println("12. Search Post");
+                System.out.println("13. Exit");
                 System.out.print("Choose an option: ");
                 int choice = -1;
 
