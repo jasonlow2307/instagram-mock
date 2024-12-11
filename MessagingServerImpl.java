@@ -1,5 +1,3 @@
-import java.io.IOException;
-import java.net.ServerSocket;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -223,6 +221,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
             Story story = iterator.next();
             if (story.isExpired()) {
                 iterator.remove(); // Remove expired stories
+                
             } else {
                 Post pseudoPost = new Post(story.getUsername(), "[Story] " + story.getContent());
                 combinedFeed.add(pseudoPost);
