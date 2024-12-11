@@ -12,13 +12,11 @@ import java.util.concurrent.TimeUnit;
 import static java.lang.Integer.parseInt;
 
 public class MessagingServerImpl extends UnicastRemoteObject implements MessagingServer {
-    private LoadBalancer coordinator;
+    private final LoadBalancer coordinator;
     private final DatabaseServer databaseServer;
     private int currentLoad = 0;
 
     private final int currentPort;
-
-    private final ScheduledExecutorService storyExpiryExecutor = Executors.newScheduledThreadPool(1);
 
     protected MessagingServerImpl(int currentPort) throws RemoteException, NotBoundException {
         super();
@@ -34,6 +32,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         // Start story expiry checker
         
         List<Story> stories = databaseServer.getStories();
+        ScheduledExecutorService storyExpiryExecutor = Executors.newScheduledThreadPool(1);
         storyExpiryExecutor.scheduleAtFixedRate(() -> {
             synchronized (stories) {
                 stories.removeIf(Story::isExpired);
@@ -64,18 +63,12 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
     @Override
     public boolean registerUser(String username, String password) throws RemoteException {
-        if (databaseServer.registerUser(username, password)) {
-            return true;
-        }
-        return false;
+        return databaseServer.registerUser(username, password);
     }
 
     @Override
     public boolean loginUser(String username, String password) throws RemoteException {
-        if (databaseServer.loginUser(username, password)) {
-            return true;
-        }
-        return false;
+        return databaseServer.loginUser(username, password);
     }
 
     @Override
@@ -224,12 +217,11 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
     @Override
     public List<Post> getFeed() throws RemoteException {
-        List<Post> combinedFeed = new ArrayList<>();
         List<Post> posts = databaseServer.getPosts();
         List<Story> stories = databaseServer.getStories();
 
         // Add regular posts
-        combinedFeed.addAll(posts);
+        List<Post> combinedFeed = new ArrayList<>(posts);
 
         // Add non-expired stories
         Iterator<Story> iterator = stories.iterator();
