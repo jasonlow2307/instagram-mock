@@ -11,7 +11,7 @@ public class DatabaseServerImpl extends UnicastRemoteObject implements DatabaseS
     private final List <Account> accounts = new ArrayList<>();
     private final List<MessagingClient> clients = new ArrayList<>();
     private final List<Post> posts = new ArrayList<>();
-    private Map<String, List<MessagingClient>> chatrooms = new HashMap<>();
+    private final Map<String, List<MessagingClient>> chatrooms = new HashMap<>();
     private final Map<String, Set<String>> followers = new HashMap<>();
     private final List<Story> stories = new ArrayList<>();
     private final Map<MessagingClient, String> onlineUsers = new HashMap<>();
