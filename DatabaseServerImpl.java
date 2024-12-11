@@ -1,11 +1,14 @@
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 
 public class DatabaseServerImpl extends UnicastRemoteObject implements DatabaseServer {
 
+    private final List <Account> accounts = new ArrayList<>();
     private final List<MessagingClient> clients = new ArrayList<>();
     private final List<Post> posts = new ArrayList<>();
     private Map<String, List<MessagingClient>> chatrooms = new HashMap<>();
@@ -18,6 +21,43 @@ public class DatabaseServerImpl extends UnicastRemoteObject implements DatabaseS
     }
 
     // Write methods to update the state in the database
+    @Override
+    public synchronized boolean registerUser(String username, String password) throws RemoteException {
+        try {
+            // Hash the password
+            String hashedPassword = hashPassword(password);
+
+            // Store the account with the hashed password
+            this.accounts.add(new Account(username, hashedPassword));
+            System.out.println("Registered new account: " + username);
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    @Override
+    public synchronized boolean loginUser(String username, String password) throws RemoteException {
+        try {
+            // Hash the entered password
+            String hashedPassword = hashPassword(password);
+
+            // Search for an account with the matching username and hashed password
+            for (Account account : this.accounts) {
+                if (account.getUsername().equals(username) && account.getPassword().equals(hashedPassword)) {
+                    System.out.println("User logged in successfully: " + username);
+                    return true; // User found, login successful
+                }
+            }
+            System.out.println("Login failed for user: " + username);
+            return false; // No matching user found
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false; // Handle any unexpected errors
+        }
+    }
+
     @Override
     public synchronized void saveClients(List<MessagingClient> clients) throws RemoteException {
         this.clients.clear();
@@ -89,6 +129,16 @@ public class DatabaseServerImpl extends UnicastRemoteObject implements DatabaseS
     @Override
     public synchronized Map<MessagingClient, String> getOnlineUsers() throws RemoteException {
         return new HashMap<>(onlineUsers); // Return a copy of the online users map
+    }
+
+    // Utility method to hash the password
+    private String hashPassword(String password) throws NoSuchAlgorithmException {
+        // Use SHA-256 hashing algorithm
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] hashBytes = md.digest(password.getBytes());
+
+        // Convert byte array into a Base64 encoded string for storage
+        return Base64.getEncoder().encodeToString(hashBytes);
     }
 
     // Main method to run the DatabaseServer

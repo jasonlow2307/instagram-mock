@@ -65,6 +65,22 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     }
 
     @Override
+    public boolean registerUser(String username, String password) throws RemoteException {
+        if (databaseServer.registerUser(username, password)) {
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean loginUser(String username, String password) throws RemoteException {
+        if (databaseServer.loginUser(username, password)) {
+            return true;
+        }
+        return false;
+    }
+
+    @Override
     public void registerClient(String username, MessagingClient client) throws RemoteException {
         List<MessagingClient> clients = databaseServer.getClients();
         clients.add(client);

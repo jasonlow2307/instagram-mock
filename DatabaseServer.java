@@ -3,8 +3,11 @@ import java.rmi.RemoteException;
 import java.util.*;
 
 public interface DatabaseServer extends Remote {
-
     // Write methods to update the state in the database
+    boolean registerUser(String username, String password) throws RemoteException;
+
+    boolean loginUser(String username, String password) throws RemoteException;
+
     void saveClients(List<MessagingClient> clients) throws RemoteException;
 
     void savePosts(List<Post> posts) throws RemoteException;

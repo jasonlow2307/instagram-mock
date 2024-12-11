@@ -19,6 +19,8 @@ public interface MessagingServer extends Remote {
     void commentOnPost(String username, int postId, String comment) throws RemoteException;
     void followUser(String follower, String followee) throws RemoteException; // New
     void unfollowUser(String follower, String followee) throws RemoteException; // New
+    boolean registerUser(String username, String password) throws RemoteException;
+    boolean loginUser(String username, String password) throws RemoteException;
     void registerClient(String username, MessagingClient client) throws RemoteException;
     Map<String, Set<String>> listOnlineUsers() throws RemoteException; // Updated
     void ping() throws RemoteException;
