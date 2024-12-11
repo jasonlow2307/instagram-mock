@@ -3,6 +3,8 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.Executors;
@@ -62,13 +64,29 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     }
 
     @Override
-    public boolean registerUser(String username, String password) throws RemoteException {
-        return databaseServer.registerUser(username, password);
+    public boolean registerUser(String username, String password) throws RemoteException, NoSuchAlgorithmException {
+        // Hash the entered password
+        String hashedPassword = hashPassword(password);
+
+        return databaseServer.registerUser(username, hashedPassword);
     }
 
     @Override
-    public boolean loginUser(String username, String password) throws RemoteException {
-        return databaseServer.loginUser(username, password);
+    public boolean loginUser(String username, String password) throws RemoteException, NoSuchAlgorithmException {
+        // Hash the password
+        String hashedPassword = hashPassword(password);
+
+        return databaseServer.loginUser(username, hashedPassword);
+    }
+
+    // Utility method to hash the password
+    private String hashPassword(String password) throws NoSuchAlgorithmException {
+        // Use SHA-256 hashing algorithm
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] hashBytes = md.digest(password.getBytes());
+
+        // Convert byte array into a Base64 encoded string for storage
+        return Base64.getEncoder().encodeToString(hashBytes);
     }
 
     @Override
