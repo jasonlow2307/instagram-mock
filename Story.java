@@ -1,6 +1,7 @@
 import java.time.Instant;
+import java.io.Serializable;
 
-public class Story {
+public class Story implements Serializable {
     private final String username;
     private final String content;
     private final Instant expiryTime;
