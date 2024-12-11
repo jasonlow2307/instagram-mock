@@ -69,7 +69,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         List<MessagingClient> clients = databaseServer.getClients();
         clients.add(client);
         databaseServer.saveClients(clients);
-        Map<MessagingClient, String> onlineUsers = new HashMap<>();
+        Map<MessagingClient, String> onlineUsers = databaseServer.getOnlineUsers();
         onlineUsers.put(client, username); // Add the client and username to the map
         databaseServer.saveOnlineUsers(onlineUsers);
 
