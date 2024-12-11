@@ -213,7 +213,6 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
 
             
             MessagingServer server = (MessagingServer) LocateRegistry.getRegistry(oldPort).lookup("MessagingService");
-            server.notifyStateChange(true);
             System.out.println("Notified server at port " + oldPort + " to sync state to new server on port " + newPort);
 
             return newPort;
@@ -267,99 +266,6 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
     public synchronized Map<Integer, Integer> getServerLoads() throws RemoteException {
         synchronized (serverLoadMap){
             return new HashMap<>(serverLoadMap);
-        }
-    }
-
-    @Override
-    public void syncServerState(int port, Map<String, Object> state) throws RemoteException {
-        try {
-            // Attempt to acquire server load map lock with timeout
-            if (serverLoadMapLock.tryLock(5, TimeUnit.SECONDS)) {
-                try {
-                    // Create a thread-safe copy of server load map
-                    Map<Integer, Integer> localServerLoadMap = new HashMap<>(serverLoadMap);
-
-                    // Use ExecutorService for parallel, controlled synchronization
-                    ExecutorService executorService = Executors.newFixedThreadPool(
-                        Math.min(localServerLoadMap.size(), Runtime.getRuntime().availableProcessors())
-                    );
-
-                    // Collect futures to handle potential sync failures
-                    List<Future<?>> syncFutures = new ArrayList<>();
-
-                    for (Map.Entry<Integer, Integer> entry : localServerLoadMap.entrySet()) {
-                        int otherPort = entry.getKey();
-                        if (otherPort != port) {
-                            Future<?> future = executorService.submit(() -> {
-                                try {
-                                    // Locate RMI registry for the server
-                                    Registry registry = LocateRegistry.getRegistry(otherPort);
-                                    MessagingServer otherServer = (MessagingServer) registry.lookup("MessagingService");
-
-                                    // Implement a timeout mechanism for state update
-                                    CompletableFuture<Void> syncTask = CompletableFuture.runAsync(() -> {
-                                        try {
-                                            otherServer.updateState(state);
-                                            System.out.println("[Concurrent] State synchronized to server at port: " + otherPort);
-                                        } catch (RemoteException e) {
-                                            throw new CompletionException(e);
-                                        }
-                                    }).orTimeout(5, TimeUnit.SECONDS);
-
-                                    // Wait for the task to complete or timeout
-                                    syncTask.join();
-                                } catch (Exception e) {
-                                    System.err.println("Failed to sync state to server at port " + otherPort + ": " + e);
-                                    // Log the error but continue with other servers
-                                }
-                            });
-                            syncFutures.add(future);
-                        }
-                    }
-
-                    // Wait for all sync tasks to complete
-                    for (Future<?> future : syncFutures) {
-                        try {
-                            future.get(5, TimeUnit.SECONDS);
-                        } catch (Exception e) {
-                            System.err.println("Sync task failed: " + e);
-                        }
-                    }
-
-                    // Shutdown the executor service
-                    executorService.shutdown();
-                } finally {
-                    // Always release the lock
-                    serverLoadMapLock.unlock();
-                }
-            } else {
-                System.err.println("Could not acquire lock for state synchronization");
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RemoteException("Synchronization interrupted", e);
-        }
-    }
-
-    @Override
-    public void syncServerStateSequential (int port, Map<String, Object> state) throws RemoteException {
-        // Iterate through serverLoadMap sequentially
-        for (Map.Entry<Integer, Integer> entry : serverLoadMap.entrySet()) {
-            int otherPort = entry.getKey();
-            if (otherPort != port) {
-                try {
-                    // Locate RMI registry for the target server
-                    Registry registry = LocateRegistry.getRegistry(otherPort);
-                    MessagingServer otherServer = (MessagingServer) registry.lookup("MessagingService");
-    
-                    // Synchronize state with the target server
-                    otherServer.updateState(state);
-                    System.out.println("[Sequential] State synchronized to server at port: " + otherPort);
-                } catch (Exception e) {
-                    System.err.println("Failed to sync state to server at port " + otherPort + ": " + e);
-                    e.printStackTrace(); // Include stack trace for debugging
-                }
-            }
         }
     }
 

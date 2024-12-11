@@ -21,11 +21,9 @@ public interface MessagingServer extends Remote {
     void unfollowUser(String follower, String followee) throws RemoteException; // New
     void registerClient(String username, MessagingClient client) throws RemoteException;
     Map<String, Set<String>> listOnlineUsers() throws RemoteException; // Updated
-    void updateState(Map<String, Object> newState) throws RemoteException;
     void ping() throws RemoteException;
     void decrementLoad() throws RemoteException;
     void incrementLoad() throws RemoteException;
-    void notifyStateChange(boolean sequential) throws RemoteException;
     void deletePost(int postId) throws RemoteException;
     void sharePost(int postId, String sharerUsername, String recipientUsername) throws RemoteException;
     void createStory(String username, String content, int durationInSeconds) throws RemoteException;

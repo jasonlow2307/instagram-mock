@@ -17,10 +17,6 @@ public interface LoadBalancer extends Remote {
     // Get all registered servers and their loads (optional for debugging)
     Map<Integer, Integer> getServerLoads() throws RemoteException;
 
-    void syncServerState(int port, Map<String, Object> state) throws RemoteException;
-
-    void syncServerStateSequential (int port, Map<String, Object> state) throws RemoteException;
-
     void addClient(MessagingClient client, int port) throws RemoteException;
 
     void removeClient(MessagingClient client) throws RemoteException;

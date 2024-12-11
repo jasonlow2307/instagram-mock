@@ -15,34 +15,27 @@ import static java.lang.Integer.parseInt;
 
 public class MessagingServerImpl extends UnicastRemoteObject implements MessagingServer {
     private LoadBalancer coordinator;
+    private final DatabaseServer databaseServer;
     private int currentLoad = 0;
-    private final List<MessagingClient> clients; // List of connected clients
-    private final List<Post> posts;            // List of posts for the feed
-    private final Map<String, List<MessagingClient>> chatrooms; // Chatrooms and their participants
-
-    private final Map<String, Set<String>> followers; // Map to track followers for each user
-    private final Map<MessagingClient, String> onlineUsers; // Map to track online users and their usernames
 
     private final int currentPort;
-
-    private final List<Story> stories = new ArrayList<>();
 
     private final ScheduledExecutorService storyExpiryExecutor = Executors.newScheduledThreadPool(1);
 
     protected MessagingServerImpl(int currentPort) throws RemoteException, NotBoundException {
         super();
-        clients = new ArrayList<>();
-        posts = new ArrayList<>();
-        chatrooms = new HashMap<>();
-        followers = new HashMap<>();
-        onlineUsers = new HashMap<>();
         this.currentPort = currentPort;
 
         // Pull load balancer into server for updating load
         Registry registry = LocateRegistry.getRegistry(1099);
         this.coordinator = (LoadBalancer) registry.lookup("ServerCoordinator");
 
+        registry = LocateRegistry.getRegistry(1098); // Database server port
+        this.databaseServer = (DatabaseServer) registry.lookup("DatabaseServer");
+
         // Start story expiry checker
+        
+        List<Story> stories = databaseServer.getStories();
         storyExpiryExecutor.scheduleAtFixedRate(() -> {
             synchronized (stories) {
                 stories.removeIf(Story::isExpired);
@@ -53,6 +46,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     @Override
     public void sendMessage(String message) throws RemoteException {
         forwardLogToLoadBalancer("Broadcasting message: " + message);
+        List<MessagingClient> clients = databaseServer.getClients();
         for (MessagingClient client : clients) {
             client.receiveMessage(message);
         }
@@ -60,6 +54,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
     @Override
     public void sendMessageToClient(String message, int clientIndex) throws RemoteException {
+        List<MessagingClient> clients = databaseServer.getClients();
         if (clientIndex < 0 || clientIndex >= clients.size()) {
             forwardLogToLoadBalancer("Invalid client index: " + clientIndex);
             return;
@@ -71,16 +66,22 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
     @Override
     public void registerClient(String username, MessagingClient client) throws RemoteException {
+        List<MessagingClient> clients = databaseServer.getClients();
         clients.add(client);
-        onlineUsers.put(client, username);
+        databaseServer.saveClients(clients);
+        Map<MessagingClient, String> onlineUsers = new HashMap<>();
+        onlineUsers.put(client, username); // Add the client and username to the map
+        databaseServer.saveOnlineUsers(onlineUsers);
+
+        Map<String, Set<String>> followers = databaseServer.getFollowers();
 
         if (!followers.containsKey(username)) {
             followers.put(username, new HashSet<>());
+            databaseServer.saveFollowers(followers);
         }
 
         forwardLogToLoadBalancer("New client registered: " + username);
         forwardLogToLoadBalancer("Total clients: " + clients.size()); // Log client count
-        notifyStateChange(false);
     }
 
     @Override
@@ -99,12 +100,14 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     public void followUser(String follower, String followee) throws RemoteException {
         forwardLogToLoadBalancer(follower + " is trying to follow " + followee);
 
+        Map<String, Set<String>> followers = databaseServer.getFollowers();
+
         if (!followers.containsKey(followee) && !follower.equals(followee)) {
             forwardLogToLoadBalancer(followee + " does not exist.");
             return;
         }
-
         followers.get(followee).add(follower);
+        databaseServer.saveFollowers(followers);
         forwardLogToLoadBalancer(follower + " is now following " + followee);
 
         // Notify the followed user
@@ -112,25 +115,26 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         if (followeeClient != null) {
             followeeClient.notify(follower + " started following you.");
         }
-
-        notifyStateChange(false);
     }
 
 
     public void unfollowUser(String follower, String followee) throws RemoteException {
+        Map<String, Set<String>> followers = databaseServer.getFollowers();
         if (!followers.containsKey(followee)) {
             forwardLogToLoadBalancer(followee + " does not exist.");
             return;
         }
 
         followers.get(followee).remove(follower);
+        databaseServer.saveFollowers(followers);
         forwardLogToLoadBalancer(follower + " unfollowed " + followee);
-        notifyStateChange(false);
     }
 
     @Override
     public Map<String, Set<String>> listOnlineUsers() throws RemoteException {
         Map<String, Set<String>> onlineUsersWithFollowers = new HashMap<>();
+        Map<MessagingClient, String> onlineUsers = databaseServer.getOnlineUsers();
+        Map<String, Set<String>> followers = databaseServer.getFollowers();
         for (Map.Entry<MessagingClient, String> entry : onlineUsers.entrySet()) {
             String username = entry.getValue();
             onlineUsersWithFollowers.put(username, followers.getOrDefault(username, new HashSet<>()));
@@ -142,6 +146,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     @Override
     public List<String> getClientList() throws RemoteException {
         List<String> clientDescriptions = new ArrayList<>();
+        List<MessagingClient> clients = databaseServer.getClients();
         for (int i = 0; i < clients.size(); i++) {
             clientDescriptions.add("Client " + (i + 1));
         }
@@ -150,10 +155,11 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
     @Override
     public void createChatroom(String roomName) throws RemoteException {
+        Map<String, List<MessagingClient>> chatrooms = databaseServer.getChatrooms();
         if (!chatrooms.containsKey(roomName)) {
             chatrooms.put(roomName, new ArrayList<>());
             forwardLogToLoadBalancer("Chatroom created: " + roomName);
-            notifyStateChange(false);
+            databaseServer.saveChatrooms(chatrooms);
         } else {
             forwardLogToLoadBalancer("Chatroom already exists: " + roomName);
         }
@@ -161,15 +167,17 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
     @Override
     public List<String> getChatrooms() throws RemoteException {
+        Map<String, List<MessagingClient>> chatrooms = databaseServer.getChatrooms();
         return new ArrayList<>(chatrooms.keySet());
     }
 
     @Override
     public void joinChatroom(String roomName, MessagingClient client) throws RemoteException {
+        Map<String, List<MessagingClient>> chatrooms = databaseServer.getChatrooms();
         if (chatrooms.containsKey(roomName)) {
             chatrooms.get(roomName).add(client);
             forwardLogToLoadBalancer("Client joined chatroom: " + roomName);
-            notifyStateChange(false);
+            databaseServer.saveChatrooms(chatrooms);
         } else {
             forwardLogToLoadBalancer("Chatroom not found: " + roomName);
         }
@@ -177,6 +185,8 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
     @Override
     public void sendMessageToChatroom(String roomName, String message, MessagingClient sender) throws RemoteException {
+        Map<String, List<MessagingClient>> chatrooms = databaseServer.getChatrooms();
+        Map<MessagingClient, String> onlineUsers = databaseServer.getOnlineUsers();
         if (chatrooms.containsKey(roomName)) {
             for (MessagingClient client : chatrooms.get(roomName)) {
                 if (!client.equals(sender)) {
@@ -191,32 +201,31 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
     @Override
     public void createPost(String username, String content) throws RemoteException {
+        List<Post> posts = databaseServer.getPosts();
         Post post = new Post(username, content);
         posts.add(post);
         forwardLogToLoadBalancer("New post created by " + username + ": " + content);
-        notifyStateChange(false);
+        databaseServer.savePosts(posts);
     }
 
     @Override
     public List<Post> getFeed() throws RemoteException {
         List<Post> combinedFeed = new ArrayList<>();
+        List<Post> posts = databaseServer.getPosts();
+        List<Story> stories = databaseServer.getStories();
 
         // Add regular posts
-        synchronized (posts) {
-            combinedFeed.addAll(posts);
-        }
+        combinedFeed.addAll(posts);
 
         // Add non-expired stories
-        synchronized (stories) {
-            Iterator<Story> iterator = stories.iterator();
-            while (iterator.hasNext()) {
-                Story story = iterator.next();
-                if (story.isExpired()) {
-                    iterator.remove(); // Remove expired stories
-                } else {
-                    Post pseudoPost = new Post(story.getUsername(), "[Story] " + story.getContent());
-                    combinedFeed.add(pseudoPost);
-                }
+        Iterator<Story> iterator = stories.iterator();
+        while (iterator.hasNext()) {
+            Story story = iterator.next();
+            if (story.isExpired()) {
+                iterator.remove(); // Remove expired stories
+            } else {
+                Post pseudoPost = new Post(story.getUsername(), "[Story] " + story.getContent());
+                combinedFeed.add(pseudoPost);
             }
         }
 
@@ -224,22 +233,21 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     }
     @Override
     public void likePost(String username, int postId) throws RemoteException {
-        synchronized (posts) {
-            for (Post post : posts) {
-                if (post.getId() == postId) {
-                    post.addLike();
-                    forwardLogToLoadBalancer(username + " liked post " + postId);
+        List<Post> posts = databaseServer.getPosts();
+        for (Post post : posts) {
+            if (post.getId() == postId) {
+                post.addLike();
+                forwardLogToLoadBalancer(username + " liked post " + postId);
 
-                    // Notify the post owner
-                    String postOwner = post.getUsername();
-                    MessagingClient ownerClient = getClientByUsername(postOwner);
-                    if (ownerClient != null) {
-                        ownerClient.notify(username + " liked your post: " + post.getContent());
-                    }
-
-                    notifyStateChange(false);
-                    return;
+                // Notify the post owner
+                String postOwner = post.getUsername();
+                MessagingClient ownerClient = getClientByUsername(postOwner);
+                if (ownerClient != null) {
+                    ownerClient.notify(username + " liked your post: " + post.getContent());
                 }
+
+                databaseServer.savePosts(posts);
+                return;
             }
         }
         forwardLogToLoadBalancer("Post not found: " + postId);
@@ -248,28 +256,28 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
     @Override
     public void commentOnPost(String username, int postId, String comment) throws RemoteException {
-        synchronized (posts) {
-            for (Post post : posts) {
-                if (post.getId() == postId) {
-                    post.addComment(username + ": " + comment);
-                    forwardLogToLoadBalancer(username + " commented on post " + postId);
+        List<Post> posts = databaseServer.getPosts();
+        for (Post post : posts) {
+            if (post.getId() == postId) {
+                post.addComment(username + ": " + comment);
+                forwardLogToLoadBalancer(username + " commented on post " + postId);
 
-                    // Notify the post owner
-                    String postOwner = post.getUsername();
-                    MessagingClient ownerClient = getClientByUsername(postOwner);
-                    if (ownerClient != null) {
-                        ownerClient.notify(username + " commented on your post: " + post.getContent());
-                    }
-
-                    notifyStateChange(false);
-                    return;
+                // Notify the post owner
+                String postOwner = post.getUsername();
+                MessagingClient ownerClient = getClientByUsername(postOwner);
+                if (ownerClient != null) {
+                    ownerClient.notify(username + " commented on your post: " + post.getContent());
                 }
+
+                databaseServer.savePosts(posts);
+                return;
             }
         }
         forwardLogToLoadBalancer("Post not found: " + postId);
     }
 
-    private MessagingClient getClientByUsername(String username) {
+    private MessagingClient getClientByUsername(String username) throws RemoteException {
+        Map<MessagingClient, String> onlineUsers = databaseServer.getOnlineUsers();
         for (Map.Entry<MessagingClient, String> entry : onlineUsers.entrySet()) {
             forwardLogToLoadBalancer(entry.getValue());
             forwardLogToLoadBalancer(username);
@@ -290,60 +298,6 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         }
     }
 
-
-
-    @Override
-    public void notifyStateChange(boolean sequential) throws RemoteException {
-        try {
-            Registry registry = LocateRegistry.getRegistry(1099);
-            LoadBalancer coordinator = (LoadBalancer) registry.lookup("ServerCoordinator");
-
-            // Create a state map to send
-            Map<String, Object> state = new HashMap<>();
-            state.put("clients", clients); // Send client details if needed
-            state.put("posts", new ArrayList<>(posts));
-            state.put("chatrooms", new HashMap<>(chatrooms));
-            state.put("followers", new HashMap<>(followers));
-            state.put("onlineUsers", new HashMap<>(onlineUsers));
-
-            if (sequential) {
-                coordinator.syncServerStateSequential(currentPort, state);
-                forwardLogToLoadBalancer("Sequential State change notification sent to coordinator.");
-            } else {
-                coordinator.syncServerState(currentPort, state);
-                forwardLogToLoadBalancer("Concurrent State change notification sent to coordinator.");
-            }
-        } catch (Exception e) {
-            forwardLogToLoadBalancer("Failed to notify state change: " + e);
-            e.printStackTrace(); // Add stack trace for debugging
-        }
-    }
-
-    @Override
-    public void updateState(Map<String, Object> newState) throws RemoteException {
-        try {
-            forwardLogToLoadBalancer("Updating state with: " + newState);
-
-            // Clear current state
-            clients.clear();
-            posts.clear();
-            chatrooms.clear();
-            followers.clear();
-            onlineUsers.clear();
-
-            // Apply the new state
-            clients.addAll((List<MessagingClient>) newState.get("clients"));
-            posts.addAll((List<Post>) newState.get("posts"));
-            chatrooms.putAll((Map<String, List<MessagingClient>>) newState.get("chatrooms"));
-            followers.putAll((Map<String, Set<String>>) newState.get("followers"));
-            onlineUsers.putAll((Map<MessagingClient, String>) newState.get("onlineUsers"));
-            forwardLogToLoadBalancer("State successfully updated.");
-
-        } catch (ClassCastException e) {
-            System.err.println("Failed to update state: Invalid state format - " + e.getMessage());
-        }
-    }
-
     @Override
     public void ping() throws RemoteException {
         // Simply return or perform no operation to confirm server is alive
@@ -351,28 +305,26 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
     @Override
     public void deletePost(int postId) throws RemoteException {
-        synchronized (posts) { // Synchronize to handle concurrent deletions
-            boolean removed = posts.removeIf(post -> post.getId() == postId);
-            if (removed) {
-                forwardLogToLoadBalancer("Post with ID " + postId + " deleted.");
-            } else {
-                forwardLogToLoadBalancer("Post with ID " + postId + " not found.");
-            }
+        List<Post> posts = databaseServer.getPosts();
+        boolean removed = posts.removeIf(post -> post.getId() == postId);
+        if (removed) {
+            forwardLogToLoadBalancer("Post with ID " + postId + " deleted.");
+        } else {
+            forwardLogToLoadBalancer("Post with ID " + postId + " not found.");
         }
-        notifyStateChange(false); // Notify the load balancer of the state change if needed
+        databaseServer.savePosts(posts);
     }
 
     @Override
     public void sharePost(int postId, String sharerUsername, String recipientUsername) throws RemoteException {
         Post sharedPost = null;
+        List<Post> posts = databaseServer.getPosts();
 
         // Find the post to share
-        synchronized (posts) {
-            for (Post post : posts) {
-                if (post.getId() == postId) {
-                    sharedPost = post;
-                    break;
-                }
+        for (Post post : posts) {
+            if (post.getId() == postId) {
+                sharedPost = post;
+                break;
             }
         }
 
@@ -380,6 +332,8 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
             forwardLogToLoadBalancer("Post with ID " + postId + " not found.");
             return;
         }
+
+        Map<MessagingClient, String> onlineUsers = databaseServer.getOnlineUsers();
 
         // Find the recipient client
         MessagingClient recipientClient = null;
@@ -407,27 +361,25 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
     @Override
     public void createStory(String username, String content, int durationInSeconds) throws RemoteException {
+        List<Story> stories = databaseServer.getStories();
         Story story = new Story(username, content, durationInSeconds);
-        synchronized (stories) {
-            stories.add(story);
-        }
+        stories.add(story);
         forwardLogToLoadBalancer("New story created by " + username + ": " + content);
-        notifyStateChange(false);
+        databaseServer.saveStories(stories);
     }
 
     @Override
     public List<Post> searchPosts(String keyword, String username, Instant startTime, Instant endTime) throws RemoteException {
         List<Post> results = new ArrayList<>();
-        synchronized (posts) {
-            for (Post post : posts) {
-                boolean matchesKeyword = (keyword == null || post.getContent().toLowerCase().contains(keyword.toLowerCase()));
-                boolean matchesUsername = (username == null || post.getUsername().equalsIgnoreCase(username));
-                boolean matchesTimeRange = (startTime == null || !post.getTimestamp().isBefore(startTime)) &&
-                        (endTime == null || !post.getTimestamp().isAfter(endTime));
+        List<Post> posts = databaseServer.getPosts();
+        for (Post post : posts) {
+            boolean matchesKeyword = (keyword == null || post.getContent().toLowerCase().contains(keyword.toLowerCase()));
+            boolean matchesUsername = (username == null || post.getUsername().equalsIgnoreCase(username));
+            boolean matchesTimeRange = (startTime == null || !post.getTimestamp().isBefore(startTime)) &&
+                    (endTime == null || !post.getTimestamp().isAfter(endTime));
 
-                if (matchesKeyword && matchesUsername && matchesTimeRange) {
-                    results.add(post);
-                }
+            if (matchesKeyword && matchesUsername && matchesTimeRange) {
+                results.add(post);
             }
         }
         return results;
