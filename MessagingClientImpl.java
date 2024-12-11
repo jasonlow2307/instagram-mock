@@ -50,6 +50,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                 try {
                     System.out.println("\nShutting down...");
                     coordinator.removeClient(client);
+                    client.server.removeOnlineUser(client.username);
                     client.server.decrementLoad();
                 } catch (Exception e) {
                     System.err.println("Failed to notify load balancer on shutdown: " + e.getMessage());

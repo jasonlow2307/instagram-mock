@@ -24,6 +24,7 @@ public interface MessagingServer extends Remote {
     boolean loginUser(String username, String password) throws RemoteException, NoSuchAlgorithmException;
     void registerClient(String username, MessagingClient client) throws RemoteException;
     Map<String, Set<String>> listOnlineUsers() throws RemoteException; // Updated
+    void removeOnlineUser(String username) throws RemoteException;
     void ping() throws RemoteException;
     void decrementLoad() throws RemoteException;
     void incrementLoad() throws RemoteException;

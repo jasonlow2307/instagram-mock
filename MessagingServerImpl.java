@@ -137,8 +137,10 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
 
         // Notify the followed user
         MessagingClient followeeClient = getClientByUsername(followee);
-        if (followeeClient != null) {
-            followeeClient.notify(follower + " started following you.");
+        // Notify the followee if they are online
+        Map<MessagingClient, String> onlineUsers = databaseServer.getOnlineUsers();
+        if (followeeClient != null && onlineUsers.containsKey(followeeClient)) {
+            followeeClient.notify(follower + " is now following you.");
         }
     }
 
@@ -165,6 +167,18 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
             onlineUsersWithFollowers.put(username, followers.getOrDefault(username, new HashSet<>()));
         }
         return onlineUsersWithFollowers;
+    }
+
+    @Override 
+    public void removeOnlineUser(String username) throws RemoteException {
+        Map<MessagingClient, String> onlineUsers = databaseServer.getOnlineUsers();
+        for (Map.Entry<MessagingClient, String> entry : onlineUsers.entrySet()) {
+            if (entry.getValue().equals(username)) {
+                onlineUsers.remove(entry.getKey());
+                break;
+            }
+        }
+        databaseServer.saveOnlineUsers(onlineUsers);
     }
 
 
@@ -267,7 +281,8 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
                 // Notify the post owner
                 String postOwner = post.getUsername();
                 MessagingClient ownerClient = getClientByUsername(postOwner);
-                if (ownerClient != null) {
+                Map<MessagingClient, String> onlineUsers = databaseServer.getOnlineUsers();
+                if (ownerClient != null && onlineUsers.containsKey(ownerClient)) {
                     ownerClient.notify(username + " liked your post: " + post.getContent());
                 }
 
@@ -290,7 +305,8 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
                 // Notify the post owner
                 String postOwner = post.getUsername();
                 MessagingClient ownerClient = getClientByUsername(postOwner);
-                if (ownerClient != null) {
+                Map<MessagingClient, String> onlineUsers = databaseServer.getOnlineUsers();
+                if (ownerClient != null && onlineUsers.containsKey(ownerClient)) {
                     ownerClient.notify(username + " commented on your post: " + post.getContent());
                 }
 
@@ -373,7 +389,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
             forwardLogToLoadBalancer("Recipient user " + recipientUsername + " is not online.");
             return;
         }
-
+        
         // Notify the recipient
         String message = sharerUsername + " shared a post with you:\n" +
                 sharedPost.getId() + ". " + sharedPost.getUsername() + ": " + sharedPost.getContent() + "\n" +
