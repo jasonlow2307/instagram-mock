@@ -106,7 +106,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
         }
 
         forwardLogToLoadBalancer("New client registered: " + username);
-        forwardLogToLoadBalancer("Total clients: " + clients.size()); // Log client count
+        forwardLogToLoadBalancer("Total clients: " + onlineUsers.size()); // Log client count
     }
 
     @Override
