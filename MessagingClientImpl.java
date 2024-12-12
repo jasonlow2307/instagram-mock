@@ -141,6 +141,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                 }
 
                 try {
+                    Map<String, Set<String>> onlineUsersWithFollowers;
                     switch (choice) {
                         case 1:
                             System.out.print("Enter message: ");
@@ -265,18 +266,41 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                             client.server.commentOnPost(client.username, postIdToComment, comment);
                             break;
                         case 7: // Follow a user
+                            // Display online users
+                            onlineUsersWithFollowers = client.server.listOnlineUsers();
+                            if (onlineUsersWithFollowers.isEmpty()) {
+                                System.out.println("No users are currently online to share the content.");
+                                break;
+                            }
+                            System.out.println("Online Users with Followers:");
+                            for (Map.Entry<String, Set<String>> entry : onlineUsersWithFollowers.entrySet()) {
+                                String user = entry.getKey();
+                                Set<String> followers = entry.getValue();
+                                System.out.println("- " + user + " (Followers: " + (followers.isEmpty() ? "None" : followers.size()) + ")");
+                            }
                             System.out.print("Enter username to follow: ");
                             String followee = scanner.nextLine();
                             System.out.println(client.username + "FOLLOW" + followee);
                             client.server.followUser(client.username, followee);
                             break;
                         case 8: // Unfollow a user
+                            onlineUsersWithFollowers = client.server.listOnlineUsers();
+                            if (onlineUsersWithFollowers.isEmpty()) {
+                                System.out.println("No users are currently online to share the content.");
+                                break;
+                            }
+                            System.out.println("Online Users with Followers:");
+                            for (Map.Entry<String, Set<String>> entry : onlineUsersWithFollowers.entrySet()) {
+                                String user = entry.getKey();
+                                Set<String> followers = entry.getValue();
+                                System.out.println("- " + user + " (Followers: " + (followers.isEmpty() ? "None" : followers.size()) + ")");
+                            }
                             System.out.print("Enter username to unfollow: ");
                             String unfollowee = scanner.nextLine();
                             client.server.unfollowUser(client.username, unfollowee);
                             break;
                         case 9: // List online users
-                            Map<String, Set<String>> onlineUsersWithFollowers = client.server.listOnlineUsers();
+                            onlineUsersWithFollowers = client.server.listOnlineUsers();
                             System.out.println("Online Users with Followers:");
                             for (Map.Entry<String, Set<String>> entry : onlineUsersWithFollowers.entrySet()) {
                                 String user = entry.getKey();
@@ -292,7 +316,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                             client.server.deletePost(postIdToDelete);
                             System.out.println("Post deleted successfully.");
                             break;
-                        case 11: // Share a post
+                        case 11: // Share a content
                             // Display the feed
                             client.displayFeed();
                             System.out.print("Enter content ID to share: ");

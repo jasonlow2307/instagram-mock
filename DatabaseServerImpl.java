@@ -1,5 +1,7 @@
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -128,12 +130,23 @@ public class DatabaseServerImpl extends UnicastRemoteObject implements DatabaseS
         return new HashMap<>(onlineUsers); // Return a copy of the online users map
     }
 
+    // Utility method to hash the password
+    private String hashPassword(String password) throws NoSuchAlgorithmException {
+        // Use SHA-256 hashing algorithm
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] hashBytes = md.digest(password.getBytes());
+
+        // Convert byte array into a Base64 encoded string for storage
+        return Base64.getEncoder().encodeToString(hashBytes);
+    }
+
     // Main method to run the DatabaseServer
     public static void main(String[] args) {
         try {
             DatabaseServerImpl databaseServer = new DatabaseServerImpl();
             Registry registry = LocateRegistry.createRegistry(1098); // Use a different port for the database server
             registry.rebind("DatabaseServer", databaseServer);
+            databaseServer.registerUser("admin", databaseServer.hashPassword("admin")); // Default account
             System.out.println("Database server is running...");
         } catch (Exception e) {
             e.printStackTrace();
