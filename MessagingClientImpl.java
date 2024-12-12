@@ -125,7 +125,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                 System.out.println("8. Unfollow User");
                 System.out.println("9. List Online Users");
                 System.out.println("10. Delete Post");
-                System.out.println("11. Share Post");
+                System.out.println("11. Share Content");
                 System.out.println("12. Search Post");
                 System.out.println("13. Exit");
                 System.out.print("Choose an option: ");
@@ -295,14 +295,14 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                         case 11: // Share a post
                             // Display the feed
                             client.displayFeed();
-                            System.out.print("Enter post ID to share: ");
-                            int postIdToShare = scanner.nextInt();
+                            System.out.print("Enter content ID to share: ");
+                            int contentIdToShare = scanner.nextInt();
                             scanner.nextLine(); // Consume leftover newline
 
                             // Display online users
                             onlineUsersWithFollowers = client.server.listOnlineUsers();
                             if (onlineUsersWithFollowers.isEmpty()) {
-                                System.out.println("No users are currently online to share the post.");
+                                System.out.println("No users are currently online to share the content.");
                                 break;
                             }
 
@@ -319,8 +319,8 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
 
                             if (recipientIndex >= 0 && recipientIndex < onlineUsernames.size()) {
                                 String recipient = onlineUsernames.get(recipientIndex);
-                                client.server.sharePost(postIdToShare, client.username, recipient);
-                                System.out.println("Post shared successfully with " + recipient + ".");
+                                client.server.shareContent(contentIdToShare, client.username, recipient);
+                                System.out.println("Content shared successfully with " + recipient + ".");
                             } else {
                                 System.out.println("Invalid user selection.");
                             }

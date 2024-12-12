@@ -357,20 +357,29 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     }
 
     @Override
-    public void sharePost(int postId, String sharerUsername, String recipientUsername) throws RemoteException {
+    public void shareContent(int contentId, String sharerUsername, String recipientUsername) throws RemoteException {
         Post sharedPost = null;
+        Story sharedStory = null;
         List<Post> posts = databaseServer.getPosts();
+        List<Story> stories = databaseServer.getStories();
 
         // Find the post to share
         for (Post post : posts) {
-            if (post.getId() == postId) {
+            if (post.getId() == contentId) {
                 sharedPost = post;
                 break;
             }
         }
 
-        if (sharedPost == null) {
-            forwardLogToLoadBalancer("Post with ID " + postId + " not found.");
+        for (Story story : stories) {
+            if (story.getId() == contentId) {
+                sharedStory = story;
+                break;
+            }
+        }
+
+        if (sharedPost == null && sharedStory == null) {
+            forwardLogToLoadBalancer("Post or Story with ID " + contentId + " not found.");
             return;
         }
 
@@ -389,21 +398,32 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
             forwardLogToLoadBalancer("Recipient user " + recipientUsername + " is not online.");
             return;
         }
-        
-        // Notify the recipient
-        String message = sharerUsername + " shared a post with you:\n" +
-                sharedPost.getId() + ". " + sharedPost.getUsername() + ": " + sharedPost.getContent() + "\n" +
-                "   Likes: " + sharedPost.getLikes() + "\n" +
-                "   Comments: " + sharedPost.getComments();
-        recipientClient.notify(message);
 
-        forwardLogToLoadBalancer(sharerUsername + " shared post ID " + postId + " with " + recipientUsername);
+        if (sharedPost != null) {
+            // Notify the recipient
+            String message = sharerUsername + " shared a post with you:\n" +
+                    sharedPost.getId() + ". " + sharedPost.getUsername() + ": " + sharedPost.getContent() + "\n" +
+                    "   Likes: " + sharedPost.getLikes() + "\n" +
+                    "   Comments: " + sharedPost.getComments();
+            recipientClient.notify(message);
+            forwardLogToLoadBalancer(sharerUsername + " shared post ID " + contentId + " with " + recipientUsername);
+        }
+        if (sharedStory != null) {
+            // Notify the recipient
+            String message = sharerUsername + " shared a story with you:\n" +
+                    sharedStory.getId() + ". " + sharedStory.getUsername() + ": " + sharedStory.getContent();
+            recipientClient.notify(message);
+            forwardLogToLoadBalancer(sharerUsername + " shared story ID " + contentId + " with " + recipientUsername);
+        }
+
+
+
     }
 
     @Override
     public void createStory(String username, String content, int durationInSeconds) throws RemoteException {
         List<Story> stories = databaseServer.getStories();
-        Story story = new Story(username, content, durationInSeconds);
+        Story story = new Story(databaseServer.getPostId() + 1, username, content, durationInSeconds);
         stories.add(story);
         forwardLogToLoadBalancer("New story created by " + username + ": " + content);
         databaseServer.saveStories(stories);

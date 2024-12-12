@@ -29,7 +29,7 @@ public interface MessagingServer extends Remote {
     void decrementLoad() throws RemoteException;
     void incrementLoad() throws RemoteException;
     void deletePost(int postId) throws RemoteException;
-    void sharePost(int postId, String sharerUsername, String recipientUsername) throws RemoteException;
+    void shareContent(int postId, String sharerUsername, String recipientUsername) throws RemoteException;
     void createStory(String username, String content, int durationInSeconds) throws RemoteException;
     List<Post> searchPosts(String keyword, String username, Instant startTime, Instant endTime) throws RemoteException;
 }
