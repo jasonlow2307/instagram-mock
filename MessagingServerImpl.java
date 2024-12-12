@@ -241,7 +241,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     @Override
     public void createPost(String username, String content) throws RemoteException {
         List<Post> posts = databaseServer.getPosts();
-        Post post = new Post(username, content);
+        Post post = new Post(username, content, databaseServer.getPostId() + 1);
         posts.add(post);
         forwardLogToLoadBalancer("New post created by " + username + ": " + content);
         databaseServer.savePosts(posts);
@@ -263,7 +263,7 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
                 iterator.remove(); // Remove expired stories
                 
             } else {
-                Post pseudoPost = new Post(story.getUsername(), "[Story] " + story.getContent());
+                Post pseudoPost = new Post(story.getUsername(), "[Story] " + story.getContent(), databaseServer.getPostId() + 1);
                 combinedFeed.add(pseudoPost);
             }
         }

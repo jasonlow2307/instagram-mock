@@ -25,6 +25,8 @@ public interface DatabaseServer extends Remote {
 
     List<Post> getPosts() throws RemoteException;
 
+    int getPostId() throws RemoteException;
+
     Map<String, List<MessagingClient>> getChatrooms() throws RemoteException;
 
     Map<String, Set<String>> getFollowers() throws RemoteException;

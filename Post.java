@@ -12,8 +12,8 @@ public class Post implements Serializable {
     private final List<String> comments;
     private final Instant timestamp;
 
-    public Post(String username, String content) {
-        this.id = nextId++;
+    public Post(String username, String content, int postId) {
+        this.id = postId;
         this.username = username;
         this.content = content;
         this.likes = 0;

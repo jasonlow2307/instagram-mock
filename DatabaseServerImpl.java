@@ -104,6 +104,11 @@ public class DatabaseServerImpl extends UnicastRemoteObject implements DatabaseS
     }
 
     @Override
+    public synchronized int getPostId() throws RemoteException {
+        return posts.size();
+    }
+
+    @Override
     public synchronized Map<String, List<MessagingClient>> getChatrooms() throws RemoteException {
         return new HashMap<>(chatrooms); // Return a copy of the chatrooms map
     }
