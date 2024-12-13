@@ -166,8 +166,8 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
             int port = clientMap.get(client);
             clientMap.remove(client);
 
-            // Decrement the load for the respective port
-            serverLoadMap.put(port, serverLoadMap.get(port) - 1);
+            // Decrement the load for the respective port but limit it to 0
+            serverLoadMap.computeIfPresent(port, (k, v) -> Math.max(v - 1, 0));
 
             System.out.println("Client removed. Updated load for port " + port + ": " + serverLoadMap.get(port));
         } else {

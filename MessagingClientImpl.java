@@ -65,6 +65,9 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                 System.exit(1); // Exit if unable to connect to any server
             }
 
+            coordinator.addClient(client, leastLoadedPort);
+            client.server.incrementLoad();
+            
             Scanner scanner = new Scanner(System.in);
             boolean isLoggedIn = false;
 
@@ -161,8 +164,6 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                             client.username = loginUsername;
                             isLoggedIn = true;
 
-                            coordinator.addClient(client, leastLoadedPort);
-                            client.server.incrementLoad();
                             client.server.registerClient(client.username, client);
                         } else {
                             System.out.println("Invalid username or password.");
