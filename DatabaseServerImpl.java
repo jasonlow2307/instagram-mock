@@ -147,6 +147,11 @@ public class DatabaseServerImpl extends UnicastRemoteObject implements DatabaseS
             Registry registry = LocateRegistry.createRegistry(1098); // Use a different port for the database server
             registry.rebind("DatabaseServer", databaseServer);
             databaseServer.registerUser("admin", databaseServer.hashPassword("admin")); // Default account
+            databaseServer.registerUser("yuchen", databaseServer.hashPassword("123")); // Default account
+            databaseServer.registerUser("jason", databaseServer.hashPassword("123")); // Default account
+            databaseServer.registerUser("brandon", databaseServer.hashPassword("123")); // Default account
+            databaseServer.registerUser("kunyan", databaseServer.hashPassword("123")); // Default account
+            databaseServer.registerUser("mingwey", databaseServer.hashPassword("123")); // Default account
             System.out.println("Database server is running...");
         } catch (Exception e) {
             e.printStackTrace();
