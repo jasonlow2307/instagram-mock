@@ -45,9 +45,9 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     @Override
     public void sendMessage(String message) throws RemoteException {
         forwardLogToLoadBalancer("Broadcasting message: " + message);
-        List<MessagingClient> clients = databaseServer.getClients();
-        for (MessagingClient client : clients) {
-            client.receiveMessage(message);
+        Map<MessagingClient, String> onlineUsers = databaseServer.getOnlineUsers();
+        for (Map.Entry<MessagingClient, String> entry : onlineUsers.entrySet()) {
+            entry.getKey().receiveMessage(message);
         }
     }
 
