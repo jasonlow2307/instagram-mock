@@ -342,7 +342,6 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                             }
                             System.out.print("Enter username to follow: ");
                             String followee = scanner.nextLine();
-                            System.out.println(client.username + "FOLLOW" + followee);
                             client.server.followUser(client.username, followee);
                             break;
                         case 8: // Unfollow a user
