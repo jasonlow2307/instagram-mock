@@ -52,18 +52,6 @@ public class MessagingServerImpl extends UnicastRemoteObject implements Messagin
     }
 
     @Override
-    public void sendMessageToClient(String message, int clientIndex) throws RemoteException {
-        List<MessagingClient> clients = databaseServer.getClients();
-        if (clientIndex < 0 || clientIndex >= clients.size()) {
-            forwardLogToLoadBalancer("Invalid client index: " + clientIndex);
-            return;
-        }
-        MessagingClient client = clients.get(clientIndex);
-        client.receiveMessage(message);
-        forwardLogToLoadBalancer("Message sent to Client " + (clientIndex + 1));
-    }
-
-    @Override
     public boolean registerUser(String username, String password) throws RemoteException, NoSuchAlgorithmException {
         // Hash the entered password
         String hashedPassword = hashPassword(password);
