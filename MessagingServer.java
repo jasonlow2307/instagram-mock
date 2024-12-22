@@ -8,7 +8,6 @@ import java.util.Set;
 
 public interface MessagingServer extends Remote {
     void sendMessage(String message) throws RemoteException;
-    void sendMessageToClient(String message, int clientIndex) throws RemoteException;
     List<String> getClientList() throws RemoteException;
     void createChatroom(String roomName) throws RemoteException;
     List<String> getChatrooms() throws RemoteException;

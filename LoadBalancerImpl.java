@@ -50,7 +50,14 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
                                 if (!isServerAlive(port)) {
                                     System.err.println("Server at port " + port + " is unresponsive. Removing it.");
                                     iterator.remove();
-                                    reassignClients(port);
+                                    // if there is only one server, don't reassign clients
+                                    if (serverLoadMap.size() > 1){
+                                        reassignClients(port);
+                                    }
+                                    else{
+                                        spawnNewServer();
+                                        reassignClients(port);
+                                    }
                                     continue; // Skip further checks for this server
                                 }
             
@@ -195,9 +202,6 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
             // Find an available port
             int newPort = findAvailablePort();
 
-            // get any server that is running, and sync the state to the new server
-            int oldPort = serverLoadMap.keySet().iterator().next();
-
             // Spawn the new server (using an example command, adjust as needed)
             registerServer("localhost:newserver", 0, newPort);
 
@@ -205,10 +209,6 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
             serverLoadMap.put(newPort, 0);
 
             System.out.println("New server spawned on port " + newPort);
-
-            
-            MessagingServer server = (MessagingServer) LocateRegistry.getRegistry(oldPort).lookup("MessagingService");
-            System.out.println("Notified server at port " + oldPort + " to sync state to new server on port " + newPort);
 
             return newPort;
         } catch (IOException | NotBoundException e) {
