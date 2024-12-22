@@ -8,7 +8,6 @@ import java.util.*;
 
 public class MessagingClientImpl extends UnicastRemoteObject implements MessagingClient {
     private String username;
-
     private MessagingServer server;
 
     protected MessagingClientImpl() throws RemoteException {
@@ -39,7 +38,6 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
         System.out.println("[Notification] " + notification);
     }
 
-
     public static void main(String[] args) {
         try {
             MessagingClientImpl client = new MessagingClientImpl();
@@ -57,90 +55,38 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                 }
             }));
 
-            // Connect to the server
             int leastLoadedPort = coordinator.getLeastLoadedServer();
             System.out.println("Least-loaded server: " + leastLoadedPort);
 
             if (!client.connectToServer(leastLoadedPort)) {
-                System.exit(1); // Exit if unable to connect to any server
+                System.exit(1);
             }
 
             coordinator.addClient(client, leastLoadedPort);
             client.server.incrementLoad();
-            
+
             Scanner scanner = new Scanner(System.in);
             boolean isLoggedIn = false;
 
-            // ANSI escape codes for colors
-            String purple = "\033[35m"; // Purple
-            String blue = "\033[34m";   // Blue
-            String yellow = "\033[33m"; // Yellow
-            String reset = "\033[0m";   // Reset color
-
-            // Enhanced welcome message
-            System.out.println(purple + "**********************************************" + reset);
-            System.out.println(purple + "*                                            *" + reset);
-            System.out.println(purple + "*   " + yellow + "WELCOME TO INSTAGRAM!!!" + purple + "                        *" + reset);
-            System.out.println(purple + "*                                            *" + reset);
-            System.out.println(purple + "*   " + blue + "Stay connected, share moments, and explore" + purple + "  *" + reset);
-            System.out.println(purple + "*                                            *" + reset);
-            System.out.println(purple + "*   " + yellow + "Let's make memories together ❤️" + purple + "            *" + reset);
-            System.out.println(purple + "*                                            *" + reset);
-            System.out.println(purple + "**********************************************" + reset + "\n\n");
-
-            // run this  to work chcp 65001
-            System.setProperty("file.encoding", "UTF-8");
-            String asciiArt = """
-                     ⬜⬜🟦🟦🟦🟦🟦🟦🟪🟪🟪🟪🟪🟪🟪🟪🟪⬜⬜
-                     ⬜🟦🟦🟦🟦🟦🟦🟪🟪🟪🟪🟪🟪🟪🟪🟪🟪🟪⬜
-                     🟦🟦🟦🟦🟦🟦🟦🟪🟪🟪🟪🟪🟪🟪🟪🟪🟪🟪🟪
-                     🟪🟦🟦🟦⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜🟪🟪🟪🟪
-                     🟪🟪🟪⬜🟪🟪🟪🟪🟪🟪🟪🟪🟪🟪🟪⬜🟪🟪🟪
-                     🟪🟪🟪⬜🟪🟪🟪🟪🟪🟪🟪🟪⬜⬜🟪⬜🟪🟪🟪
-                     🟪🟪🟪⬜🟪🟪🟪🟪🟪🟪🟪🟪⬜⬜🟪⬜🟪🟪🟪
-                     🟪🟪🟪⬜🟪🟪🟪⬜⬜⬜⬜🟪🟪🟪🟪⬜🟪🟪🟪
-                     🟪🟪🟪⬜🟥🟪⬜🟪🟪🟪🟪⬜🟪🟪🟪⬜🟪🟪🟪
-                     🟪🟪🟥⬜🟥🟥⬜🟪🟥🟪🟪⬜🟪🟪🟪⬜🟪🟪🟪
-                     🟥🟥🟥⬜🟥🟥⬜🟥🟥🟥🟥⬜🟪🟪🟪⬜🟪🟪🟪
-                     🟥🟥🟧⬜🟧🟧⬜🟧🟧🟥🟥⬜🟥🟪🟪⬜🟪🟪🟪
-                     🟧🟧🟧⬜🟨🟧🟧⬜⬜⬜⬜🟥🟥🟥🟥⬜🟪🟪🟪
-                     🟧🟨🟨⬜🟨🟨🟧🟧🟧🟧🟥🟥🟥🟥🟥⬜🟪🟪🟪
-                     🟧🟨🟨⬜🟨🟨🟧🟧🟧🟧🟥🟥🟥🟥🟥⬜🟪🟪🟪
-                     🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜🟪🟪🟥🟥
-                     🟨🟨🟨🟨🟨🟨🟨🟨🟧🟧🟧🟧🟧🟥🟥🟥🟥🟥🟥
-                     ⬜🟨🟨🟨🟨🟨🟨🟨🟨🟧🟧🟧🟧🟥🟥🟥🟥🟥⬜
-                     ⬜⬜🟨🟨🟨🟨🟨🟨🟨🟧🟧🟧🟧🟥🟥🟥🟥⬜⬜
-                """;
-
-//            String asciiArt = """
-//                    ⣿⣿⣿⡿⠟⠋⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠛⢿⣿⣿⣿
-//                    ⣿⡿⠋⠀⠀⢀⣠⣤⣤⣴⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣦⣤⣤⣀⠀⠀⠈⢻⣿
-//                    ⡿⠁⠀⢀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠟⠻⢿⣷⡄⠀⠀⢻
-//                    ⠇⠀⠀⣾⣿⣿⣿⣿⣿⣿⣿⣿⡿⠿⠿⠿⠿⢿⣿⣿⣿⡇⠀⠀⢈⣿⣿⡀⠀⠘
-//                    ⠀⠀⠀⣿⣿⣿⣿⣿⣿⡿⠋⠁⠀⠀⠀⠀⠀⠀⠈⠙⢿⣿⣦⣴⣾⣿⣿⡇⠀⠀
-//                    ⠀⠀⢸⣿⣿⣿⣿⣿⠏⠀⠀⢀⣴⣾⣿⣿⣷⣦⣄⠀⠀⠙⣿⣿⣿⣿⣿⡇⠀⠀
-//                    ⠀⠀⢸⣿⣿⣿⣿⡏⠀⠀⣰⣿⣿⣿⣿⣿⣿⣿⣿⣧⠀⠀⢸⣿⣿⣿⣿⡇⠀⠀
-//                    ⠀⠀⢸⣿⣿⣿⣿⡇⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⢀⣿⣿⣿⣿⡇⠀⠀
-//                    ⠀⠀⢸⣿⣿⣿⣿⣇⠀⠀⠹⣿⣿⣿⣿⣿⣿⣿⣿⡟⠀⠀⢸⣿⣿⣿⣿⡇⠀⠀
-//                    ⠀⠀⠸⣿⣿⣿⣿⣿⣆⠀⠀⠙⠻⢿⣿⣿⣿⠿⠋⠀⠀⣠⣿⣿⣿⣿⣿⡇⠀⠀
-//                    ⠀⠀⠀⣿⣿⣿⣿⣿⣿⣷⣄⡀⠀⠀⠀⠀⠀⠀⠀⣠⣴⣿⣿⣿⣿⣿⣿⡇⠀⠀
-//                    ⡇⠀⠀⢿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣶⣤⣤⣶⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⠁⠀⢀
-//                    ⣷⠀⠀⠘⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠃⠀⠀⣼
-//                    ⣿⣷⡀⠀⠀⠉⠛⠛⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠛⠛⠉⠀⠀⢀⣼⣿
-//                    ⣿⣿⣿⣷⣤⣀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⣤⣶⣿⣿⣿
-//                    """;
-
-            System.out.println(asciiArt);
+            System.out.println("Welcome to Messaging Application!");
 
             while (!isLoggedIn) {
                 System.out.println("\n0. Register");
                 System.out.println("1. Login");
                 System.out.print("Choose an option: ");
-                int authChoice = scanner.nextInt();
-                scanner.nextLine(); // Consume leftover newline
+                int authChoice = -1;
+
+                try {
+                    authChoice = scanner.nextInt();
+                    scanner.nextLine();
+                } catch (InputMismatchException e) {
+                    System.out.println("Invalid input. Please enter a valid number.");
+                    scanner.nextLine();
+                    continue;
+                }
 
                 switch (authChoice) {
-                    case 0: // Register
+                    case 0:
                         System.out.print("Enter username: ");
                         String newUsername = scanner.nextLine();
                         System.out.print("Enter password: ");
@@ -153,7 +99,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                         }
                         break;
 
-                    case 1: // Login
+                    case 1:
                         System.out.print("Enter username: ");
                         String loginUsername = scanner.nextLine();
                         System.out.print("Enter password: ");
@@ -172,7 +118,6 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
 
                     default:
                         System.out.println("Invalid choice. Please try again.");
-                        break;
                 }
             }
 
@@ -191,19 +136,19 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                 System.out.println("12. Search Post");
                 System.out.println("13. Exit");
                 System.out.print("Choose an option: ");
+
                 int choice = -1;
 
                 try {
                     choice = scanner.nextInt();
-                    scanner.nextLine(); // Consume leftover newline
+                    scanner.nextLine();
                 } catch (InputMismatchException e) {
-                    System.out.println("Invalid input. Please enter a number.");
-                    scanner.nextLine(); // Clear invalid input
+                    System.out.println("Invalid input. Please enter a valid number.");
+                    scanner.nextLine();
                     continue;
                 }
 
                 try {
-                    Map<String, Set<String>> onlineUsersWithFollowers;
                     switch (choice) {
                         case 1:
                             System.out.print("Enter message: ");
@@ -213,8 +158,16 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                         case 2:
                             System.out.println("\n1. Create Chatroom\n2. Join Chatroom");
                             System.out.print("Choose an option: ");
-                            int chatChoice = scanner.nextInt();
-                            scanner.nextLine(); // Consume leftover newline
+                            int chatChoice = -1;
+
+                            try {
+                                chatChoice = scanner.nextInt();
+                                scanner.nextLine();
+                            } catch (InputMismatchException e) {
+                                System.out.println("Invalid input. Please enter a valid number.");
+                                scanner.nextLine();
+                                break;
+                            }
 
                             if (chatChoice == 1) {
                                 System.out.print("Enter chatroom name: ");
@@ -222,7 +175,6 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                                 client.server.createChatroom(roomName);
                                 System.out.println("Chatroom created: " + roomName);
 
-                                // Automatically join the chatroom after creation
                                 client.server.joinChatroom(roomName, client);
                                 System.out.println("Joined chatroom: " + roomName);
                                 System.out.println("Type 'quit' to exit the chatroom.");
@@ -245,8 +197,17 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                                     System.out.println((i + 1) + ". " + chatrooms.get(i));
                                 }
                                 System.out.print("Choose a chatroom to join: ");
-                                int roomIndex = scanner.nextInt() - 1;
-                                scanner.nextLine(); // Consume leftover newline
+                                int roomIndex = -1;
+
+                                try {
+                                    roomIndex = scanner.nextInt() - 1;
+                                    scanner.nextLine();
+                                } catch (InputMismatchException e) {
+                                    System.out.println("Invalid input. Please enter a valid number.");
+                                    scanner.nextLine();
+                                    break;
+                                }
+
                                 if (roomIndex >= 0 && roomIndex < chatrooms.size()) {
                                     String roomName = chatrooms.get(roomIndex);
                                     client.server.joinChatroom(roomName, client);
@@ -265,11 +226,19 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                                 }
                             }
                             break;
-                        case 3: // Create Content
+                        case 3:
                             System.out.println("\n1. Regular Post\n2. Story");
                             System.out.print("Choose an option: ");
-                            int contentChoice = scanner.nextInt();
-                            scanner.nextLine(); // Consume leftover newline
+                            int contentChoice = -1;
+
+                            try {
+                                contentChoice = scanner.nextInt();
+                                scanner.nextLine();
+                            } catch (InputMismatchException e) {
+                                System.out.println("Invalid input. Please enter a valid number.");
+                                scanner.nextLine();
+                                break;
+                            }
 
                             if (contentChoice == 1) {
                                 System.out.print("Enter post content: ");
@@ -278,33 +247,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                             } else if (contentChoice == 2) {
                                 System.out.print("Enter story content: ");
                                 String storyContent = scanner.nextLine();
-
-                                // List time periods for story visibility
-                                System.out.println("\nChoose story visibility duration:");
-                                System.out.println("1. 30 seconds");
-                                System.out.println("2. 1 minute");
-                                System.out.println("3. 5 minutes");
-                                System.out.println("4. 1 hour");
-                                System.out.println("5. 8 hours");
-                                System.out.println("6. 24 hours");
-                                System.out.print("Choose an option: ");
-                                int timeChoice = scanner.nextInt();
-                                scanner.nextLine(); // Consume leftover newline
-
-                                int durationInSeconds;
-                                switch (timeChoice) {
-                                    case 1: durationInSeconds = 30; break;
-                                    case 2: durationInSeconds = 60; break;
-                                    case 3: durationInSeconds = 300; break;
-                                    case 4: durationInSeconds = 3600; break;
-                                    case 5: durationInSeconds = 28800; break;
-                                    case 6: durationInSeconds = 86400; break;
-                                    default:
-                                        System.out.println("Invalid choice. Defaulting to 24 hours.");
-                                        durationInSeconds = 86400;
-                                }
-
-                                client.server.createStory(client.username, storyContent, durationInSeconds);
+                                client.server.createStory(client.username, storyContent, 86400); // Default to 24 hours
                             } else {
                                 System.out.println("Invalid choice.");
                             }
@@ -315,142 +258,45 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                         case 5:
                             client.displayFeed();
                             System.out.print("Enter post ID to like: ");
-                            int postIdToLike = scanner.nextInt();
+                            int postIdToLike = -1;
+
+                            try {
+                                postIdToLike = scanner.nextInt();
+                                scanner.nextLine();
+                            } catch (InputMismatchException e) {
+                                System.out.println("Invalid input. Please enter a valid number.");
+                                scanner.nextLine();
+                                break;
+                            }
+
                             client.server.likePost(client.username, postIdToLike);
                             break;
                         case 6:
                             client.displayFeed();
                             System.out.print("Enter post ID to comment on: ");
-                            int postIdToComment = scanner.nextInt();
-                            scanner.nextLine();
+                            int postIdToComment = -1;
+
+                            try {
+                                postIdToComment = scanner.nextInt();
+                                scanner.nextLine();
+                            } catch (InputMismatchException e) {
+                                System.out.println("Invalid input. Please enter a valid number.");
+                                scanner.nextLine();
+                                break;
+                            }
+
                             System.out.print("Enter comment: ");
                             String comment = scanner.nextLine();
                             client.server.commentOnPost(client.username, postIdToComment, comment);
                             break;
-                        case 7: // Follow a user
-                            // Display online users
-                            onlineUsersWithFollowers = client.server.listOnlineUsers();
-                            if (onlineUsersWithFollowers.isEmpty()) {
-                                System.out.println("No users are currently online to share the content.");
-                                break;
-                            }
-                            System.out.println("Online Users with Followers:");
-                            for (Map.Entry<String, Set<String>> entry : onlineUsersWithFollowers.entrySet()) {
-                                String user = entry.getKey();
-                                Set<String> followers = entry.getValue();
-                                System.out.println("- " + user + " (Followers: " + (followers.isEmpty() ? "None" : followers.size()) + ")");
-                            }
-                            System.out.print("Enter username to follow: ");
-                            String followee = scanner.nextLine();
-                            client.server.followUser(client.username, followee);
-                            break;
-                        case 8: // Unfollow a user
-                            onlineUsersWithFollowers = client.server.listOnlineUsers();
-                            if (onlineUsersWithFollowers.isEmpty()) {
-                                System.out.println("No users are currently online to share the content.");
-                                break;
-                            }
-                            System.out.println("Online Users with Followers:");
-                            for (Map.Entry<String, Set<String>> entry : onlineUsersWithFollowers.entrySet()) {
-                                String user = entry.getKey();
-                                Set<String> followers = entry.getValue();
-                                System.out.println("- " + user + " (Followers: " + (followers.isEmpty() ? "None" : followers.size()) + ")");
-                            }
-                            System.out.print("Enter username to unfollow: ");
-                            String unfollowee = scanner.nextLine();
-                            client.server.unfollowUser(client.username, unfollowee);
-                            break;
-                        case 9: // List online users
-                            onlineUsersWithFollowers = client.server.listOnlineUsers();
-                            System.out.println("Online Users with Followers:");
-                            for (Map.Entry<String, Set<String>> entry : onlineUsersWithFollowers.entrySet()) {
-                                String user = entry.getKey();
-                                Set<String> followers = entry.getValue();
-                                System.out.println("- " + user + " (Followers: " + (followers.isEmpty() ? "None" : followers.size()) + ")");
-                            }
-                            break;
-                        case 10: // Delete a post
-                            client.displayFeed();
-                            System.out.print("Enter post ID to delete: ");
-                            int postIdToDelete = scanner.nextInt();
-                            scanner.nextLine(); // Consume leftover newline
-                            client.server.deletePost(postIdToDelete);
-                            System.out.println("Post deleted successfully.");
-                            break;
-                        case 11: // Share a content
-                            // Display the feed
-                            client.displayFeed();
-                            System.out.print("Enter content ID to share: ");
-                            int contentIdToShare = scanner.nextInt();
-                            scanner.nextLine(); // Consume leftover newline
-
-                            // Display online users
-                            onlineUsersWithFollowers = client.server.listOnlineUsers();
-                            if (onlineUsersWithFollowers.isEmpty()) {
-                                System.out.println("No users are currently online to share the content.");
-                                break;
-                            }
-
-                            System.out.println("Online Users:");
-                            List<String> onlineUsernames = new ArrayList<>(onlineUsersWithFollowers.keySet());
-                            for (int i = 0; i < onlineUsernames.size(); i++) {
-                                System.out.println((i + 1) + ". " + onlineUsernames.get(i));
-                            }
-
-                            // Select recipient
-                            System.out.print("Choose a user to share the post with: ");
-                            int recipientIndex = scanner.nextInt() - 1;
-                            scanner.nextLine(); // Consume leftover newline
-
-                            if (recipientIndex >= 0 && recipientIndex < onlineUsernames.size()) {
-                                String recipient = onlineUsernames.get(recipientIndex);
-                                client.server.shareContent(contentIdToShare, client.username, recipient);
-                                System.out.println("Content shared successfully with " + recipient + ".");
-                            } else {
-                                System.out.println("Invalid user selection.");
-                            }
-                            break;
-                        case 12: // Search for posts
-                            System.out.println("\nSearch for Posts:");
-                            System.out.print("Enter keyword (leave blank for no filter): ");
-                            String keyword = scanner.nextLine().trim();
-
-                            System.out.print("Enter username (leave blank for no filter): ");
-                            String searchUsername = scanner.nextLine().trim();
-                            if (searchUsername.isEmpty()) searchUsername = null;
-
-                            System.out.println("Enter time range (leave blank for no filter):");
-                            System.out.print("Start time (YYYY-MM-DD HH:mm:ss): ");
-                            String startInput = scanner.nextLine().trim();
-                            Instant startTime = startInput.isEmpty() ? null : Instant.parse(startInput + ":00Z");
-
-                            System.out.print("End time (YYYY-MM-DD HH:mm:ss): ");
-                            String endInput = scanner.nextLine().trim();
-                            Instant endTime = endInput.isEmpty() ? null : Instant.parse(endInput + ":00Z");
-
-                            List<Post> searchResults = client.server.searchPosts(
-                                    keyword.isEmpty() ? null : keyword,
-                                    searchUsername,
-                                    startTime,
-                                    endTime
-                            );
-
-                            System.out.println("\nSearch Results:");
-                            for (Post post : searchResults) {
-                                System.out.println(post.getId() + ". " + post.getUsername() + ": " + post.getContent());
-                                System.out.println("   Likes: " + post.getLikes());
-                                System.out.println("   Comments: " + post.getComments());
-                            }
-                            break;
-                        case 13: // Exit
+                        case 13:
                             System.exit(0);
-                            break;
                         default:
                             System.out.println("Invalid choice. Please try again.");
                     }
                 } catch (RemoteException e) {
                     System.err.println("Server connection lost. Attempting to reconnect...");
-                    if (!client.connectToServer(1009)) {
+                    if (!client.connectToServer(leastLoadedPort)) {
                         System.out.println("Failed to reconnect. Exiting...");
                         System.exit(1);
                     }
@@ -470,26 +316,4 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
             System.out.println("   Comments: " + post.getComments());
         }
     }
-
-//    private boolean connectToLeastLoadedServer() {
-//        try {
-//            Registry registry = LocateRegistry.getRegistry("localhost", 1099);
-//            ServerCoordinator coordinator = (ServerCoordinator) registry.lookup("ServerCoordinator");
-//            int serverPort = coordinator.getLeastLoadedServer();
-//
-//            if (serverAddress != null) {
-//                String[] hostPort = serverAddress.split(":");
-//                String host = hostPort[0];
-//                int port = Integer.parseInt(hostPort[1]);
-//                Registry serverRegistry = LocateRegistry.getRegistry(host, port);
-//                server = (MessagingService) serverRegistry.lookup("MessagingService");
-//                System.out.println("Connected to least-loaded server: " + serverAddress);
-//                return true;
-//            }
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//        return false;
-//    }
-
 }
