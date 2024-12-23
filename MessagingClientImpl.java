@@ -4,6 +4,7 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 
 public class MessagingClientImpl extends UnicastRemoteObject implements MessagingClient {
@@ -68,7 +69,7 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
             Scanner scanner = new Scanner(System.in);
             boolean isLoggedIn = false;
 
-            System.out.println("Welcome to Messaging Application!");
+            System.out.println("Welcome to Instagram Mock Application!");
 
             while (!isLoggedIn) {
                 System.out.println("\n0. Register");
@@ -288,6 +289,168 @@ public class MessagingClientImpl extends UnicastRemoteObject implements Messagin
                             System.out.print("Enter comment: ");
                             String comment = scanner.nextLine();
                             client.server.commentOnPost(client.username, postIdToComment, comment);
+                            break;
+                        // ... (other parts of the code)
+
+                        case 7: // Follow a user
+                            try {
+                                Map<String, Set<String>> onlineUsersWithFollowers = client.server.listOnlineUsers();
+                                if (onlineUsersWithFollowers.isEmpty()) {
+                                    System.out.println("No users are currently online to follow.");
+                                    break;
+                                }
+                                System.out.println("Online Users with Followers:");
+                                for (Map.Entry<String, Set<String>> entry : onlineUsersWithFollowers.entrySet()) {
+                                    String user = entry.getKey();
+                                    Set<String> followers = entry.getValue();
+                                    System.out.println("- " + user + " (Followers: " + (followers.isEmpty() ? "None" : followers.size()) + ")");
+                                }
+                                System.out.print("Enter username to follow: ");
+                                String followee = scanner.nextLine().trim();
+                                client.server.followUser(client.username, followee);
+                                System.out.println("You are now following " + followee);
+                            } catch (RemoteException e) {
+                                System.err.println("Error while following user: " + e.getMessage());
+                            }
+                            break;
+
+                        case 8: // Unfollow a user
+                            try {
+                                Map<String, Set<String>> onlineUsersWithFollowers = client.server.listOnlineUsers();
+                                if (onlineUsersWithFollowers.isEmpty()) {
+                                    System.out.println("No users are currently online to unfollow.");
+                                    break;
+                                }
+                                System.out.println("Online Users with Followers:");
+                                for (Map.Entry<String, Set<String>> entry : onlineUsersWithFollowers.entrySet()) {
+                                    String user = entry.getKey();
+                                    Set<String> followers = entry.getValue();
+                                    System.out.println("- " + user + " (Followers: " + (followers.isEmpty() ? "None" : followers.size()) + ")");
+                                }
+                                System.out.print("Enter username to unfollow: ");
+                                String unfollowee = scanner.nextLine().trim();
+                                client.server.unfollowUser(client.username, unfollowee);
+                                System.out.println("You have unfollowed " + unfollowee);
+                            } catch (RemoteException e) {
+                                System.err.println("Error while unfollowing user: " + e.getMessage());
+                            }
+                            break;
+
+                        case 9: // List online users
+                            try {
+                                Map<String, Set<String>> onlineUsersWithFollowers = client.server.listOnlineUsers();
+                                if (onlineUsersWithFollowers.isEmpty()) {
+                                    System.out.println("No users are currently online.");
+                                } else {
+                                    System.out.println("Online Users with Followers:");
+                                    for (Map.Entry<String, Set<String>> entry : onlineUsersWithFollowers.entrySet()) {
+                                        String user = entry.getKey();
+                                        Set<String> followers = entry.getValue();
+                                        System.out.println("- " + user + " (Followers: " + (followers.isEmpty() ? "None" : followers.size()) + ")");
+                                    }
+                                }
+                            } catch (RemoteException e) {
+                                System.err.println("Error while listing online users: " + e.getMessage());
+                            }
+                            break;
+
+                        case 10: // Delete a post
+                            try {
+                                client.displayFeed();
+                                System.out.print("Enter post ID to delete: ");
+                                int postIdToDelete = scanner.nextInt();
+                                scanner.nextLine(); // Consume leftover newline
+                                client.server.deletePost(postIdToDelete);
+                                System.out.println("Post deleted successfully.");
+                            } catch (InputMismatchException e) {
+                                System.out.println("Invalid input. Please enter a valid post ID.");
+                                scanner.nextLine(); // Clear invalid input
+                            } catch (RemoteException e) {
+                                System.err.println("Error while deleting post: " + e.getMessage());
+                            }
+                            break;
+
+                        case 11: // Share content
+                            try {
+                                client.displayFeed();
+                                System.out.print("Enter content ID to share: ");
+                                int contentIdToShare = scanner.nextInt();
+                                scanner.nextLine(); // Consume leftover newline
+
+                                Map<String, Set<String>> onlineUsersWithFollowers = client.server.listOnlineUsers();
+                                if (onlineUsersWithFollowers.isEmpty()) {
+                                    System.out.println("No users are currently online to share the content.");
+                                    break;
+                                }
+
+                                System.out.println("Online Users:");
+                                List<String> onlineUsernames = new ArrayList<>(onlineUsersWithFollowers.keySet());
+                                for (int i = 0; i < onlineUsernames.size(); i++) {
+                                    System.out.println((i + 1) + ". " + onlineUsernames.get(i));
+                                }
+
+                                System.out.print("Choose a user to share the post with: ");
+                                int recipientIndex = scanner.nextInt() - 1;
+                                scanner.nextLine(); // Consume leftover newline
+
+                                if (recipientIndex >= 0 && recipientIndex < onlineUsernames.size()) {
+                                    String recipient = onlineUsernames.get(recipientIndex);
+                                    client.server.shareContent(contentIdToShare, client.username, recipient);
+                                    System.out.println("Content shared successfully with " + recipient + ".");
+                                } else {
+                                    System.out.println("Invalid user selection.");
+                                }
+                            } catch (InputMismatchException e) {
+                                System.out.println("Invalid input. Please enter a valid number.");
+                                scanner.nextLine(); // Clear invalid input
+                            } catch (RemoteException e) {
+                                System.err.println("Error while sharing content: " + e.getMessage());
+                            }
+                            break;
+
+                        case 12: // Search for posts
+                            try {
+                                System.out.println("\nSearch for Posts:");
+                                System.out.print("Enter keyword (leave blank for no filter): ");
+                                String keyword = scanner.nextLine().trim();
+
+                                System.out.print("Enter username (leave blank for no filter): ");
+                                String searchUsername = scanner.nextLine().trim();
+                                if (searchUsername.isEmpty()) searchUsername = null;
+
+                                System.out.println("Enter time range (leave blank for no filter):");
+                                System.out.print("Start time (YYYY-MM-DD HH:mm:ss): ");
+                                String startInput = scanner.nextLine().trim();
+                                Instant startTime = startInput.isEmpty() ? null : Instant.parse(startInput + ":00Z");
+
+                                System.out.print("End time (YYYY-MM-DD HH:mm:ss): ");
+                                String endInput = scanner.nextLine().trim();
+                                Instant endTime = endInput.isEmpty() ? null : Instant.parse(endInput + ":00Z");
+
+                                List<Post> searchResults = client.server.searchPosts(
+                                        keyword.isEmpty() ? null : keyword,
+                                        searchUsername,
+                                        startTime,
+                                        endTime
+                                );
+
+                                System.out.println("\nSearch Results:");
+                                if (searchResults.isEmpty()) {
+                                    System.out.println("No posts found matching the criteria.");
+                                } else {
+                                    for (Post post : searchResults) {
+                                        System.out.println(post.getId() + ". " + post.getUsername() + ": " + post.getContent());
+                                        System.out.println("   Likes: " + post.getLikes());
+                                        System.out.println("   Comments: " + post.getComments());
+                                    }
+                                }
+                            } catch (RemoteException e) {
+                                System.err.println("Error while searching posts: " + e.getMessage());
+                            } catch (DateTimeParseException e) {
+                                System.out.println("Invalid date/time format. Please use the format YYYY-MM-DD HH:mm:ss.");
+                            } catch (Exception e) {
+                                System.out.println("An unexpected error occurred. Returning to the main menu.");
+                            }
                             break;
                         case 13:
                             System.exit(0);
