@@ -182,7 +182,7 @@ public class LoadBalancerImpl extends UnicastRemoteObject implements LoadBalance
         }
     }
 
-    int LOAD_THRESHOLD = 1;
+    int LOAD_THRESHOLD = 2;
     private synchronized void checkLoad() {
         System.out.println("CHECKING LOAD");
         for (Map.Entry<Integer, Integer> entry : serverLoadMap.entrySet()) {
