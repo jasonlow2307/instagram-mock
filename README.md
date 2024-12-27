@@ -64,10 +64,16 @@ This project demonstrates a scalable, distributed system using a load balancer t
 1. **Compile the Code**:
    ```bash
    javac *.java
-2. **Start the Load Balancer**:
+2. **Start the Database**:
+    ```bash
+    java DatabaseServerImpl
+3. **Start the Load Balancer**:
     ```bash
     java LoadBalancerImpl
-3. **Start the Client**
+4. **Start the Client**
     ```bash
    java MessagingClientImpl
 <br>_Contributions are welcome! Submit issues or pull requests on the project's Git repository. 🌟_
+
+<br>_Developed by [Jason Low](https://github.com/jasonlow2307) and [Tee Yu Chen](https://github.com/YuChenTee)_
+
